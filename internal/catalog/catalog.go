@@ -1,4 +1,4 @@
-// Copyright 2026 The nut-exporter Authors
+// Copyright 2026 Benjamin Saiz
 // SPDX-License-Identifier: Apache-2.0
 
 // Package catalog maps NUT variable names of the NUT catalogue to metric families (design §5b).

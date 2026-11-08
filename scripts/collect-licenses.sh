@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright 2026 The nut-exporter Authors
+# Copyright 2026 Benjamin Saiz
 # SPDX-License-Identifier: Apache-2.0
 #
 # collect-licenses.sh <package> <dest>: copies the licence and notice files of everything compiled

@@ -1,4 +1,4 @@
-// Copyright 2026 The nut-exporter Authors
+// Copyright 2026 Benjamin Saiz
 // SPDX-License-Identifier: Apache-2.0
 
 // Package collect reads every UPS of the configured upsd servers into snapshots (design §3).
