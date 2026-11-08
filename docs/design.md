@@ -49,7 +49,9 @@ derived states; history upsd does not keep (past self-test results); `/probe` an
   addresses, possibly repeated (`N/docs/net-protocol.txt:125-144,450-466`). Both since 2.6.4.
 - [Certain] `ups.status` flags: OL OB LB HB RB CHRG DISCHRG BYPASS CAL OFF OVER TRIM BOOST FSD
   (`N/docs/new-drivers.txt:343-356`), ALARM added by NUT, WAIT set by upsd before the first driver
-  dump (master doc); other tokens are possible.
+  dump (master doc; also observed on upsd 2.7.4 with dummy-ups: `ups.status="WAIT"` and 3
+  variables for ~1 s after a driver restart, then a growing partial `LIST VAR`); other tokens
+  are possible. Alerts on `OL` must tolerate `WAIT`.
 - [Certain] `VER` and `NETVER` give server and protocol versions (`N@2.7.4/server/netmisc.c`);
   `server.info`/`server.version` are synthesized by `GET VAR` only, not in `LIST VAR`
   (`N@2.7.4/server/netget.c:165-192`, `netlist.c:121-127`). V1 uses `VER`/`NETVER`.
