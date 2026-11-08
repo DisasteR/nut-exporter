@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -41,15 +42,16 @@ type upsMeta struct {
 
 // metaCache holds metadata entries for listed items only (design §3).
 type metaCache struct {
-	mu  sync.Mutex
-	ttl time.Duration
-	ups map[string]*upsMeta
-	rr  int
-	now func() time.Time
+	mu     sync.Mutex
+	ttl    time.Duration
+	budget int // bytes of retained values per UPS
+	ups    map[string]*upsMeta
+	rr     int
+	now    func() time.Time
 }
 
 func newMetaCache(ttl time.Duration) *metaCache {
-	return &metaCache{ttl: ttl, ups: map[string]*upsMeta{}, now: time.Now}
+	return &metaCache{ttl: ttl, budget: 4 << 20, ups: map[string]*upsMeta{}, now: time.Now}
 }
 
 func pending() *entry { return &entry{MetaEntry: MetaEntry{Query: Query{State: StatePending}}} }
@@ -141,7 +143,8 @@ type job struct {
 	e                *entry
 }
 
-// due picks the next due entry, rotating across UPSes one entry at a time.
+// due picks the entry due for the longest time (never refreshed ones first); ties go to the next
+// UPS in rotation, then to the smallest (item, query).
 func (m *metaCache) due() (job, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -151,22 +154,26 @@ func (m *metaCache) due() (job, bool) {
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	var best job
+	bestAt, found, at := time.Time{}, false, 0
 	for i := range names {
 		n := names[(m.rr+i)%len(names)]
 		um := m.ups[n]
 		if now.Before(um.paused) {
 			continue
 		}
-		if j, ok := um.first(now); ok {
-			m.rr = (m.rr + i + 1) % len(names)
-			j.ups = n
-			return j, true
+		if j, ok := um.first(now); ok && (!found || j.e.next.Before(bestAt)) {
+			best, bestAt, found, at = j, j.e.next, true, i
+			best.ups = n
 		}
 	}
-	return job{}, false
+	if found {
+		m.rr = (m.rr + at + 1) % len(names)
+	}
+	return best, found
 }
 
-// first returns the due entry of a UPS with the smallest (item, query).
+// first returns the due entry of a UPS with the earliest due time, then the smallest (item, query).
 func (um *upsMeta) first(now time.Time) (job, bool) {
 	var best job
 	found := false
@@ -174,7 +181,8 @@ func (um *upsMeta) first(now time.Time) (job, bool) {
 		if now.Before(e.next) {
 			return
 		}
-		if !found || item < best.item || (item == best.item && query < best.query) {
+		if !found || e.next.Before(best.e.next) ||
+			(e.next.Equal(best.e.next) && (item < best.item || (item == best.item && query < best.query))) {
 			best, found = job{item: item, query: query, e: e}, true
 		}
 	}
@@ -187,6 +195,25 @@ func (um *upsMeta) first(now time.Time) (job, bool) {
 		consider(c, MetaCmdDesc, e)
 	}
 	return best, found
+}
+
+// size is the number of bytes of retained values of a UPS.
+func (um *upsMeta) size() int {
+	n := 0
+	add := func(e *entry) {
+		for _, v := range e.Value {
+			n += len(v)
+		}
+	}
+	for _, qs := range um.vars {
+		for _, e := range qs {
+			add(e)
+		}
+	}
+	for _, e := range um.cmds {
+		add(e)
+	}
+	return n
 }
 
 // commit stores a result if the entry is still the one listed (generation check by identity).
@@ -205,6 +232,18 @@ func (m *metaCache) commit(j job, value []string, err error) {
 	}
 	if cur != j.e {
 		return
+	}
+	if err == nil {
+		grow := 0
+		for _, v := range value {
+			grow += len(v)
+		}
+		for _, v := range cur.Value {
+			grow -= len(v)
+		}
+		if grow > 0 && um.size()+grow > m.budget {
+			err = fmt.Errorf("%w: metadata of UPS %s over %d bytes", nut.ErrTooLarge, j.ups, m.budget)
+		}
 	}
 	now := m.now()
 	cur.Query = result(err, now)

@@ -84,7 +84,9 @@ func run() error {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintln(w, "nut-exporter: /metrics /inventory")
 	})
-	srv := &http.Server{Addr: cfg.Listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	// A reader that stalls cannot hold a handler and its snapshot beyond the scrape deadline.
+	srv := &http.Server{Addr: cfg.Listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout: 10 * time.Second, WriteTimeout: cfg.Timeouts.Scrape + 10*time.Second, IdleTimeout: time.Minute}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
 	log.Info("listening", "address", cfg.Listen, "servers", len(cfg.Servers), "version", version)

@@ -83,16 +83,19 @@ func (p *projector) server(srv collect.Server) []sample {
 			out = append(out, sample{f: fServerQuery, labels: with(s, q), value: b2f(st.OK())})
 		}
 	}
-	if srv.Queries[collect.QueryVersion].OK() || srv.Queries[collect.QueryProtocol].OK() {
-		if validLabel(srv.Version, p.cfg.Guard.MaxLength) && validLabel(srv.Protocol, p.cfg.Guard.MaxLength) {
-			out = append(out, sample{f: fServerInfo, labels: with(s, srv.Version, srv.Protocol), value: 1})
-		}
+	// A label is empty when its query failed or its answer is not a valid label (raw in /inventory).
+	ver, proto := srv.Version, srv.Protocol
+	if !validLabel(ver, p.cfg.Guard.MaxLength) {
+		ver = ""
 	}
+	if !validLabel(proto, p.cfg.Guard.MaxLength) {
+		proto = ""
+	}
+	out = append(out, sample{f: fServerInfo, labels: with(s, ver, proto), value: 1})
 	if !disc.OK() {
 		return out
 	}
 	skipped := map[string]float64{"filter": 0, "ups_cap": 0, "encoding": 0, "duplicate": 0}
-	seenUPS := map[string]bool{}
 	for _, u := range srv.UPS {
 		if !u.Collected {
 			skipped[u.SkipReason]++
@@ -102,11 +105,6 @@ func (p *projector) server(srv collect.Server) []sample {
 			skipped["encoding"]++
 			continue
 		}
-		if seenUPS[u.Name] {
-			skipped["duplicate"]++
-			continue
-		}
-		seenUPS[u.Name] = true
 		out = append(out, p.ups(srv.Name, u)...)
 	}
 	for _, r := range []string{"filter", "ups_cap", "encoding", "duplicate"} {
@@ -172,11 +170,14 @@ func (p *projector) ups(server string, u collect.UPS) []sample {
 	}
 	if u.Queries[collect.QueryRW].OK() {
 		var ws []sample
-		names := make([]string, 0, len(u.RW))
+		count := map[string]int{}
 		for _, v := range u.RW {
-			names = append(names, v.Name)
+			count[v.Name]++
 		}
-		for _, n := range sortedUnique(names) {
+		for _, n := range sortedKeys(count) {
+			if count[n] > 1 {
+				sup.add(fWritable, "duplicate", count[n]-1)
+			}
 			if !p.cfg.Variables.Match(n) {
 				sup.add(fWritable, "filter", 1)
 				continue
@@ -292,24 +293,12 @@ func (p *projector) status(sc []string, raw string, sup suppressions) []sample {
 	return out
 }
 
+// metadata projects the metadata cache. It depends on the cache only, not on the current LIST VAR:
+// the cache keeps its entries while LIST VAR fails (design §5).
 func (p *projector) metadata(sc []string, u collect.UPS, sup suppressions) []sample {
 	var out []sample
-	listed := map[string]bool{}
-	for _, v := range u.Vars {
-		listed[v.Name] = p.cfg.Variables.Match(v.Name)
-	}
 	for _, name := range sortedKeys(u.VarMeta) {
 		m := u.VarMeta[name]
-		if included, ok := listed[name]; !ok {
-			continue
-		} else if !included {
-			for f, e := range map[*family]collect.MetaEntry{fType: m.Type, fEnum: m.Enum, fRange: m.Range} {
-				if !e.LastOK.IsZero() && len(e.Value) > 0 {
-					sup.add(f, "filter", 1)
-				}
-			}
-			continue
-		}
 		var ts, es, rs []sample
 		if !m.Type.LastOK.IsZero() {
 			for _, t := range sortedUnique(m.Type.Value) {
@@ -330,6 +319,14 @@ func (p *projector) metadata(sc []string, u collect.UPS, sup suppressions) []sam
 					rs = append(rs, sample{f: fRange, labels: with(sc, name, r[0], r[1]), value: 1, group: fRange.name})
 				}
 			}
+		}
+		if !p.cfg.Variables.Match(name) {
+			for f, n := range map[*family]int{fType: len(ts), fEnum: len(es), fRange: len(rs)} {
+				if n > 0 {
+					sup.add(f, "filter", n)
+				}
+			}
+			continue
 		}
 		out = append(out, p.guard(sc, fType, name, ts, sup)...)
 		out = append(out, p.guard(sc, fEnum, name, es, sup)...)
@@ -532,14 +529,23 @@ func gkey(prio int, name string) string { return string(rune('0'+prio)) + "|" + 
 func (p *projector) evict(servers []collect.Server) {
 	live := map[string]bool{}
 	discovered := map[string]bool{}
+	listed := map[string]map[string]bool{} // UPS key -> variables of a successful LIST VAR
 	for _, srv := range servers {
 		if !srv.Queries[collect.QueryDiscovery].OK() {
 			continue
 		}
 		discovered[srv.Name] = true
 		for _, u := range srv.UPS {
-			if u.Collected {
-				live[key(srv.Name, u.Name)] = true
+			if !u.Collected {
+				continue
+			}
+			uk := key(srv.Name, u.Name)
+			live[uk] = true
+			if u.Queries[collect.QueryVars].OK() {
+				listed[uk] = map[string]bool{}
+				for _, v := range u.Vars {
+					listed[uk][v.Name] = true
+				}
 			}
 		}
 	}
@@ -547,9 +553,12 @@ func (p *projector) evict(servers []collect.Server) {
 		parts := strings.SplitN(k, "\x00", 3)
 		return parts[0], key(parts[0], parts[1])
 	}
+	perVariable := map[string]bool{fInfo.name: true, fType.name: true, fEnum.name: true, fRange.name: true}
 	for k, cs := range p.st.churn {
 		srv, uk := upsOf(k)
-		if (discovered[srv] && !live[uk]) || p.now.Sub(cs.lastUsed) > p.cfg.Guard.ChurnWindow {
+		parts := strings.SplitN(k, "\x00", 4) // server, ups, family, variable
+		gone := listed[uk] != nil && perVariable[parts[2]] && !listed[uk][parts[3]]
+		if (discovered[srv] && !live[uk]) || gone || p.now.Sub(cs.lastUsed) > p.cfg.Guard.ChurnWindow {
 			delete(p.st.churn, k)
 		}
 	}

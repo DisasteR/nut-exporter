@@ -262,6 +262,7 @@ func newEnv(t *testing.T, cfg config.Config, servers ...named) *env {
 		}
 		c := collect.NewServer(collect.Options{
 			Name: s.name, Address: addr, Workers: cfg.Workers, MetadataTTL: cfg.MetadataTTL,
+			MaxUPS: cfg.Guard.MaxUPS, UPSFilter: cfg.UPS.Match,
 			Client: nut.Options{ConnectTimeout: cfg.Timeouts.Connect, CommandTimeout: cfg.Timeouts.Command,
 				MaxLine: cfg.Limits.MaxLine, MaxResponse: cfg.Limits.MaxResponse},
 		})

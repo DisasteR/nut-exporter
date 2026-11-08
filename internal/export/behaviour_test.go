@@ -104,7 +104,11 @@ func TestHangingUPSesDoNotStarveHealthy(t *testing.T) {
 	a, b, c := common("a"), common("b"), common("c")
 	a.hangAll, b.hangAll = true, true
 	f := newFake(t, a, b, c)
-	e := newEnv(t, baseCfg(), named{name: "nas", f: f})
+	// 2 workers, 200 ms per timeout: without deferral every round of the queue costs 200 ms and
+	// c's 5th query starts after 800 ms; with deferral c is done after the first round.
+	cfg := baseCfg()
+	cfg.Timeouts.Scrape = 700 * time.Millisecond
+	e := newEnv(t, cfg, named{name: "nas", f: f})
 	start := time.Now()
 	got := e.scrape()
 	if d := time.Since(start); d > e.cfg.Timeouts.Scrape+time.Second {

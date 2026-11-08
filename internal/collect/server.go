@@ -35,6 +35,9 @@ func NewServer(opt Options) *ServerCollector {
 	s := &ServerCollector{opt: opt}
 	s.dial = func(ctx context.Context) (*nut.Conn, error) { return nut.Dial(ctx, opt.Address, opt.Client) }
 	s.meta = newMetaCache(opt.MetadataTTL)
+	if opt.Client.MaxResponse > 0 {
+		s.meta.budget = opt.Client.MaxResponse
+	}
 	return s
 }
 
@@ -44,9 +47,9 @@ type item struct {
 }
 
 // Collect runs the core collection (design §3) within ctx.
-func (s *ServerCollector) Collect(ctx context.Context) Server {
+func (s *ServerCollector) Collect(ctx context.Context) (srv Server) {
 	start := time.Now()
-	srv := Server{Name: s.opt.Name, Address: s.opt.Address, Queries: map[string]Query{}}
+	srv = Server{Name: s.opt.Name, Address: s.opt.Address, Queries: map[string]Query{}}
 	defer func() { srv.Duration = time.Since(start) }()
 
 	conn, err := s.dial(ctx)
@@ -60,28 +63,18 @@ func (s *ServerCollector) Collect(ctx context.Context) Server {
 		conn.Close()
 		return srv
 	}
-	// Version queries are independent: a failure costs a reconnection, nothing else.
-	srv.Version, conn = s.version(ctx, conn, srv.Queries, QueryVersion, (*nut.Conn).Version)
-	srv.Protocol, conn = s.version(ctx, conn, srv.Queries, QueryProtocol, (*nut.Conn).ProtocolVersion)
+	// Version queries are independent of UPS work: they run on their own connection meanwhile.
+	var ver versions
+	done := make(chan struct{})
+	go func() { defer close(done); ver = s.versions(ctx) }()
 
-	sort.Slice(list, func(i, j int) bool { return list[i].Name < list[j].Name })
-	collected := 0
-	for _, u := range list {
-		x := UPS{Name: u.Name, Description: u.Description}
-		switch {
-		case s.opt.UPSFilter != nil && !s.opt.UPSFilter(u.Name):
-			x.SkipReason = "filter"
-		case s.opt.MaxUPS > 0 && collected >= s.opt.MaxUPS:
-			x.SkipReason = "ups_cap"
-		default:
-			x.Collected = true
-			x.Queries = map[string]Query{}
-			collected++
-		}
-		srv.UPS = append(srv.UPS, x)
-	}
-
+	srv.UPS = s.selectUPS(list)
 	s.runQueue(ctx, conn, srv.UPS)
+	<-done
+	srv.Version, srv.Protocol = ver.version, ver.protocol
+	for q, st := range ver.queries {
+		srv.Queries[q] = st
+	}
 	s.meta.sync(srv.UPS)
 	for i := range srv.UPS {
 		if srv.UPS[i].Collected {
@@ -91,20 +84,69 @@ func (s *ServerCollector) Collect(ctx context.Context) Server {
 	return srv
 }
 
-// version runs one server version query, reconnecting first if conn is nil or broken. It
-// returns the connection to use next (nil if a reconnection failed).
-func (s *ServerCollector) version(ctx context.Context, conn *nut.Conn, q map[string]Query, name string,
-	f func(*nut.Conn, context.Context) (string, error)) (string, *nut.Conn) {
-	var err error
-	if conn == nil || conn.Broken() {
-		if conn, err = s.dial(ctx); err != nil {
-			q[name] = result(err, time.Now())
-			return "", nil
+// selectUPS resolves duplicate names (the last entry wins) before the UPS filter and max_ups,
+// so a duplicate never consumes capacity (design §6).
+func (s *ServerCollector) selectUPS(list []nut.UPS) []UPS {
+	last := map[string]int{}
+	for i, u := range list {
+		last[u.Name] = i
+	}
+	var dups, kept []UPS
+	for i, u := range list {
+		x := UPS{Name: u.Name, Description: u.Description}
+		if last[u.Name] != i {
+			x.SkipReason = "duplicate"
+			dups = append(dups, x)
+			continue
+		}
+		kept = append(kept, x)
+	}
+	sort.SliceStable(kept, func(i, j int) bool { return kept[i].Name < kept[j].Name })
+	collected := 0
+	for i := range kept {
+		x := &kept[i]
+		switch {
+		case s.opt.UPSFilter != nil && !s.opt.UPSFilter(x.Name):
+			x.SkipReason = "filter"
+		case s.opt.MaxUPS > 0 && collected >= s.opt.MaxUPS:
+			x.SkipReason = "ups_cap"
+		default:
+			x.Collected = true
+			x.Queries = map[string]Query{}
+			collected++
 		}
 	}
-	v, err := f(conn, ctx)
-	q[name] = result(err, time.Now())
-	return v, conn
+	return append(kept, dups...)
+}
+
+type versions struct {
+	version, protocol string
+	queries           map[string]Query
+}
+
+// versions runs VER and NETVER on a connection of their own; a failure costs a reconnection.
+func (s *ServerCollector) versions(ctx context.Context) versions {
+	v := versions{queries: map[string]Query{}}
+	var conn *nut.Conn
+	run := func(name string, f func(*nut.Conn, context.Context) (string, error)) string {
+		var err error
+		if conn == nil || conn.Broken() {
+			if conn, err = s.dial(ctx); err != nil {
+				conn = nil
+				v.queries[name] = result(err, time.Now())
+				return ""
+			}
+		}
+		out, err := f(conn, ctx)
+		v.queries[name] = result(err, time.Now())
+		return out
+	}
+	v.version = run(QueryVersion, (*nut.Conn).Version)
+	v.protocol = run(QueryProtocol, (*nut.Conn).ProtocolVersion)
+	if conn != nil {
+		conn.Close()
+	}
+	return v
 }
 
 // runQueue executes the per-UPS queries: round-robin across UPSes, query-major, every

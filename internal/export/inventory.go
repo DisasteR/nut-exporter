@@ -44,8 +44,8 @@ type invMeta struct {
 
 type invVar struct {
 	Name       pstr               `json:"name"`
-	Value      pstr               `json:"value"`
-	Export     string             `json:"export"`               // gauge or info, before guards
+	Value      *pstr              `json:"value"`                // null when LIST VAR failed (cached metadata only)
+	Export     string             `json:"export,omitempty"`     // gauge or info, before guards
 	Suppressed string             `json:"suppressed,omitempty"` // reason the series was not exported
 	Metadata   map[string]invMeta `json:"metadata,omitempty"`
 }
@@ -124,30 +124,44 @@ func (e *Exporter) invUPS(res *Result, server string, u collect.UPS) invUPS {
 		iu.Queries[q] = iq(st)
 		complete = complete && st.OK()
 	}
-	for _, v := range u.Vars {
-		export := "info"
-		if k, _, _ := e.proj.cls.Classify(v.Name, v.Value); k == classify.Gauge {
-			export = "gauge"
-		}
-		iv := invVar{Name: pstr(v.Name), Value: pstr(v.Value), Export: export,
-			Suppressed: res.varSup[key(server, u.Name, v.Name)]}
-		if m, ok := u.VarMeta[v.Name]; ok {
-			iv.Metadata = map[string]invMeta{
-				collect.MetaType: im(m.Type), collect.MetaDesc: im(m.Desc),
-				collect.MetaEnum: im(m.Enum), collect.MetaRange: im(m.Range),
-			}
-			for _, x := range iv.Metadata {
-				complete = complete && x.State == collect.StateOK
-			}
-		} else {
+	meta := func(name string) map[string]invMeta {
+		m, ok := u.VarMeta[name]
+		if !ok {
 			complete = false
+			return nil
 		}
-		iu.Variables = append(iu.Variables, iv)
+		out := map[string]invMeta{
+			collect.MetaType: im(m.Type), collect.MetaDesc: im(m.Desc),
+			collect.MetaEnum: im(m.Enum), collect.MetaRange: im(m.Range),
+		}
+		for _, x := range out {
+			complete = complete && x.State == collect.StateOK
+		}
+		return out
+	}
+	if u.Queries[collect.QueryVars].OK() {
+		for _, v := range u.Vars {
+			export := "info"
+			if k, _, _ := e.proj.cls.Classify(v.Name, v.Value); k == classify.Gauge {
+				export = "gauge"
+			}
+			val := pstr(v.Value)
+			iu.Variables = append(iu.Variables, invVar{Name: pstr(v.Name), Value: &val, Export: export,
+				Suppressed: res.varSup[key(server, u.Name, v.Name)], Metadata: meta(v.Name)})
+		}
+	} else {
+		// LIST VAR failed: the cache still knows the variables and their metadata, not their values.
+		for _, name := range sortedKeys(u.VarMeta) {
+			iu.Variables = append(iu.Variables, invVar{Name: pstr(name), Metadata: meta(name)})
+		}
 	}
 	for _, v := range u.RW {
 		iu.RW = append(iu.RW, invRW{Name: pstr(v.Name), Value: pstr(v.Value)})
 	}
 	cmds := append([]string(nil), u.Commands...)
+	if !u.Queries[collect.QueryCommands].OK() {
+		cmds = sortedKeys(u.CmdMeta)
+	}
 	sort.Strings(cmds)
 	for _, c := range cmds {
 		ic := invCmd{Name: pstr(c)}

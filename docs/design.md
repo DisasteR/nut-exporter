@@ -75,8 +75,9 @@ may be out of sync). Commands implemented: `VER`, `NETVER`, `LIST UPS|VAR|CMD|RW
 `GET NUMLOGINS|TYPE|DESC|CMDDESC`, `LOGOUT`. No other command exists in the code.
 
 Core collection (every scrape, per server, `workers` connections, default 2):
-1. `LIST UPS` (discovery). `VER` and `NETVER` are independent server queries: a failure only empties
-   the matching label of `nut_server_info` and sets `nut_server_query_success` to 0.
+1. `LIST UPS` (discovery). `VER` and `NETVER` are independent server queries, run on their own
+   connection while the UPS work proceeds: a failure only empties the matching label of
+   `nut_server_info` and sets `nut_server_query_success` to 0.
 2. A work queue of (UPS, query) items for `LIST VAR`, `GET NUMLOGINS`, `LIST CLIENT`, `LIST CMD`,
    `LIST RW`, ordered round-robin across UPSes (every `LIST VAR` first). Each item has its own
    command timeout and its own result.
@@ -93,8 +94,8 @@ out, healthy UPSes start after about `ceil(H/W)*t` plus reconnections; defaults 
 scrape 10 s) keep healthy UPSes collected with up to 6 such UPSes per server. Deferred items then
 use the remaining time; whatever is unfinished at the deadline is reported `timeout`.
 
-Metadata refresh (background goroutine per server, own connection, own timeouts, work queue
-rotating across UPSes one entry at a time): per variable
+Metadata refresh (background goroutine per server, own connection, own timeouts; the entry due
+for the longest goes first, never-refreshed ones first, ties rotating across UPSes): per variable
 `GET TYPE`, `GET DESC`, `LIST ENUM` and `LIST RANGE` (both lists always: in 2.7.4 `GET TYPE`
 returns early on ENUM and hides a range list, `N@2.7.4/server/netget.c:144-155`); per command
 `GET CMDDESC`. Every `metadata_ttl` (default 10 min) and when new variables or commands appear.
@@ -104,13 +105,17 @@ previous value. An entry is committed only if its item is still listed in the la
 `LIST VAR`/`LIST CMD` (generation check); an item no longer listed drops its entries. Scrapes
 read the cache, never wait for it; a new UPS exports its metadata families once refreshed.
 A failed entry is retried after 1 min, doubling up to `metadata_ttl`; a timeout pauses all work of
-that UPS for 1 min, so other UPSes progress. Pending entries are exported
+that UPS for 1 min, so other UPSes progress. Retained values are bounded per UPS by
+`limits.max_response` bytes: an answer that would exceed it fails its entry with `too_large`
+and keeps the previous value. Pending entries are exported
 (`nut_metadata_pending`). Initial refresh of a healthy UPS costs `4N + C` round trips (N
 variables, C commands), interleaved with other UPSes.
 
 Concurrent scrapes share one in-flight collection whose lifetime is bounded by its own
 `timeouts.scrape` (default 10 s), independent of any caller; a caller that disconnects or times
 out stops waiting without cancelling it. Set the scraper's timeout above `timeouts.scrape`.
+HTTP responses have a write deadline of `timeouts.scrape` + 10 s, so a stalled reader cannot hold
+a handler and its snapshot.
 
 Requests per scrape for one UPS: 3 per server + 5 per UPS. nut_exporter sends `2N+5` per UPS
 (`GET DESC` and `GET TYPE` per variable, `G/ups.go:122-148`), 97 for this UPS.
@@ -153,7 +158,7 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | Family | Extra labels | Source / value |
 |---|---|---|
 | `nut_server_up` | | 1 if `LIST UPS` succeeded |
-| `nut_server_info` | `version`, `protocol` | 1; raw `VER`, `NETVER` (label empty if that query failed) |
+| `nut_server_info` | `version`, `protocol` | 1; raw `VER`, `NETVER` (label empty if that query failed or its answer is not a valid label; raw in `/inventory`) |
 | `nut_server_query_success` | `query` | 1/0 for `discovery`, `version`, `protocol` |
 | `nut_server_suppressed` | `reason` | UPSes not exported: `filter`, `ups_cap` (not collected), `encoding` (name not UTF-8), `duplicate` |
 | `nut_ups_info` | `description` | 1; `LIST UPS`; exported whenever the UPS is listed |
@@ -180,7 +185,8 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | `nut_exporter_build_info` | `version`, `goversion` | 1 |
 
 Each family depends only on its own query: a failed `LIST VAR` removes variable-derived families
-(`nut_variable_*` from vars, `nut_ups_status`) for that UPS and nothing else.
+(`nut_variable_*` from vars, `nut_ups_status`) for that UPS and nothing else. Type, enum and
+range families come from the metadata cache only and stay while `LIST VAR` fails.
 
 Status: known flags (§2) are emitted once `ups.status` is read; an unknown flag is emitted as 1
 and remembered so it later reads 0 (max 32 per UPS, the first ones seen, in name order within a
@@ -207,7 +213,7 @@ exported) or `nut_server_suppressed{reason}` (number of UPSes), and the value st
 | `encoding` | text value not valid UTF-8 (Prometheus label values must be UTF-8) | always |
 | `length` | label value longer than `max_length` bytes; never truncated or hashed | 1024 |
 | `churn` | turnover: the label sets of a (family, variable) key seen within `churn_window` but absent now reach `max_distinct` (a single-valued variable is suppressed at its `max_distinct`-th distinct value); applies to `nut_variable_info`, clients, type, enum, range. The size of a family never triggers it: commands and writable names are static driver data, bounded by `series_cap` | 100 / 24 h |
-| `duplicate` | a name repeated in one LIST answer (variable, RW) or in `LIST UPS`: the last one wins, the others are counted; duplicate series would make the registry fail the whole scrape | always |
+| `duplicate` | a name repeated in one LIST answer (variable, RW) or in `LIST UPS`: the last one wins, the others are counted; duplicate series would make the registry fail the whole scrape. `LIST UPS` duplicates are resolved before the UPS filter and `max_ups` | always |
 | `ups_cap` | more than `max_ups` per server; UPSes kept in name order | 256 |
 | `series_cap` | more than `max_series` UPS-scoped series; health, query and suppression families are outside the budget, as is `nut_ups_logins`; families dropped whole in this order: enum, range, type, writable, commands, clients, timestamps; then variables in reverse name order, text and gauges alike | 20000 |
 | `status_tokens` | unknown status flags beyond 32 | 32 |
@@ -217,7 +223,7 @@ items are bounded by `limits.max_response` per LIST answer and `max_ups` per ser
 for a hostile server: `max_ups` x 5 core answers x `max_response` per collection, about 5 GiB with
 defaults; lower `max_ups`/`max_response` where that matters); a churn key keeps at most `max_distinct + 1` value hashes, then only a
 saturated mark until the window slides; unknown status flags at most 32 per UPS; metadata entries
-only for listed items. State is keyed by server/UPS/item and dropped when the item is absent from
+only for listed items, their values at most `limits.max_response` bytes per UPS. State is keyed by server/UPS/item and dropped when the item is absent from
 a successful `LIST UPS`/`LIST VAR`/`LIST CMD`. Churn state is in memory; a restart resets it.
 
 ## 6b. Inventory
@@ -242,8 +248,11 @@ a successful `LIST UPS`/`LIST VAR`/`LIST CMD`. Churn state is in memory; a resta
   client addresses, command names, versions) is a JSON string when valid UTF-8, else an object
   `{"base64": "..."}`: reversible, also inside lists. `rw` entries are `{name, value}`.
 - `complete` is true only when every core query and every metadata entry of the UPS is `ok`.
+- When `LIST VAR` fails, `variables` lists the cached variables with `"value": null` and their
+  metadata; when `LIST CMD` fails, `commands` lists the cached commands with their description.
 - A UPS skipped by the UPS filter or `max_ups` is listed with `"collected": false` and the reason.
-- Response limits (`limits.max_line`, `limits.max_response`) are configurable; exceeding them
+- Response limits (`limits.max_line`, newline included; `limits.max_response`, every byte of the
+  answer including `BEGIN`/`END` lines) are configurable; exceeding them
   fails that query with `too_large`, and the snapshot reports it incomplete.
 
 ## 7. Configuration

@@ -121,24 +121,36 @@ func (c *Conn) done() {
 	}
 }
 
-// readLine reads one line without its newline, bounded by MaxLine.
-func (c *Conn) readLine() (string, error) {
+// readLine reads one line without its newline, bounded by MaxLine (newline included). It also
+// returns the number of bytes read from the wire.
+func (c *Conn) readLine() (string, int, error) {
 	b, err := c.r.ReadSlice('\n')
-	if errors.Is(err, bufio.ErrBufferFull) {
-		return "", c.fail(fmt.Errorf("%w: line longer than %d bytes", ErrTooLarge, c.opt.MaxLine))
+	if errors.Is(err, bufio.ErrBufferFull) || len(b) > c.opt.MaxLine {
+		return "", 0, c.fail(fmt.Errorf("%w: line longer than %d bytes", ErrTooLarge, c.opt.MaxLine))
 	}
 	if err != nil {
-		return "", c.fail(err)
+		return "", 0, c.fail(err)
 	}
-	return strings.TrimSuffix(string(b[:len(b)-1]), "\r"), nil
+	return strings.TrimSuffix(string(b[:len(b)-1]), "\r"), len(b), nil
 }
 
 // readTokens reads one line and tokenizes it; an ERR line becomes an *Error.
 func (c *Conn) readTokens() ([]string, error) {
-	line, err := c.readLine()
+	tok, _, err := c.readTokensN()
+	return tok, err
+}
+
+func (c *Conn) readTokensN() ([]string, int, error) {
+	line, n, err := c.readLine()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+	tok, err := c.tokens(line)
+	return tok, n, err
+}
+
+// tokens tokenizes one answer line; an ERR line becomes an *Error.
+func (c *Conn) tokens(line string) ([]string, error) {
 	tok, err := Tokenize(line)
 	if err != nil {
 		return nil, c.fail(fmt.Errorf("%w: %v", ErrProtocol, err))
@@ -158,7 +170,7 @@ func (c *Conn) rawLine(ctx context.Context, cmd string) (string, error) {
 		return "", err
 	}
 	defer c.done()
-	line, err := c.readLine()
+	line, _, err := c.readLine()
 	if err != nil {
 		return "", err
 	}
@@ -196,7 +208,7 @@ func (c *Conn) list(ctx context.Context, args ...string) ([][]string, error) {
 		return nil, err
 	}
 	defer c.done()
-	tok, err := c.readTokens()
+	tok, read, err := c.readTokensN()
 	if err != nil {
 		return nil, err
 	}
@@ -206,18 +218,23 @@ func (c *Conn) list(ctx context.Context, args ...string) ([][]string, error) {
 	end := append([]string{"END"}, req...)
 	prefix := append([]string{args[0]}, args[1:]...)
 	var items [][]string
-	read := 0
 	for {
-		line, err := c.readLine()
+		line, n, err := c.readLine()
 		if err != nil {
 			return nil, err
 		}
-		if read += len(line) + 1; read > c.opt.MaxResponse {
+		if read += n; read > c.opt.MaxResponse {
 			return nil, c.fail(fmt.Errorf("%w: answer larger than %d bytes", ErrTooLarge, c.opt.MaxResponse))
 		}
-		tok, err := Tokenize(line)
+		tok, err := c.tokens(line)
 		if err != nil {
-			return nil, c.fail(fmt.Errorf("%w: %v", ErrProtocol, err))
+			// An ERR after BEGIN keeps its NUT word; the stream is out of sync, so the
+			// connection is closed either way.
+			var nerr *Error
+			if errors.As(err, &nerr) {
+				c.fail(nerr)
+			}
+			return nil, err
 		}
 		if equal(tok, end) {
 			return items, nil

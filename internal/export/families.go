@@ -35,7 +35,7 @@ var (
 	fServerUp         = &family{name: "nut_server_up", help: "1 if LIST UPS succeeded.", scope: scopeServer}
 	fServerInfo       = &family{name: "nut_server_info", help: "Raw VER and NETVER answers.", labels: []string{"version", "protocol"}, scope: scopeServer}
 	fServerQuery      = &family{name: "nut_server_query_success", help: "1 if the server query succeeded.", labels: []string{"query"}, scope: scopeServer}
-	fServerSuppressed = &family{name: "nut_server_suppressed", help: "UPSes not exported, by reason (filter, ups_cap, encoding).", labels: []string{"reason"}, scope: scopeServer}
+	fServerSuppressed = &family{name: "nut_server_suppressed", help: "UPSes not exported, by reason (filter, ups_cap, encoding, duplicate).", labels: []string{"reason"}, scope: scopeServer}
 	fDuration         = &family{name: "nut_collect_duration_seconds", help: "Duration of the last collection of the server.", scope: scopeServer}
 
 	fUPSInfo     = &family{name: "nut_ups_info", help: "UPS listed by upsd, with its description.", labels: []string{"description"}, scope: scopeUPS}
