@@ -1,0 +1,65 @@
+# Hand-written expectation for testdata/apc-back-ups-rs-1500g.txt (design section 4).
+# Server "nas", UPS "ups". Opaque names are info series with the exact text; other values
+# matching ^-?[0-9]+(\.[0-9]+)?$ are gauges; *.date values yield a 00:00 UTC timestamp.
+nut_variable_value{server="nas",ups="ups",variable="battery.charge"} 100
+nut_variable_value{server="nas",ups="ups",variable="battery.charge.low"} 10
+nut_variable_value{server="nas",ups="ups",variable="battery.charge.warning"} 50
+nut_variable_value{server="nas",ups="ups",variable="battery.runtime"} 25500
+nut_variable_value{server="nas",ups="ups",variable="battery.runtime.low"} 120
+nut_variable_value{server="nas",ups="ups",variable="battery.voltage"} 27.3
+nut_variable_value{server="nas",ups="ups",variable="battery.voltage.nominal"} 24
+nut_variable_value{server="nas",ups="ups",variable="input.transfer.high"} 294
+nut_variable_value{server="nas",ups="ups",variable="input.transfer.low"} 176
+nut_variable_value{server="nas",ups="ups",variable="input.voltage"} 237
+nut_variable_value{server="nas",ups="ups",variable="input.voltage.nominal"} 230
+nut_variable_value{server="nas",ups="ups",variable="ups.delay.shutdown"} 20
+nut_variable_value{server="nas",ups="ups",variable="ups.load"} 0
+nut_variable_value{server="nas",ups="ups",variable="ups.realpower.nominal"} 865
+nut_variable_value{server="nas",ups="ups",variable="ups.timer.reboot"} 0
+nut_variable_value{server="nas",ups="ups",variable="ups.timer.shutdown"} -1
+nut_variable_info{server="nas",ups="ups",variable="battery.date",value="2001/09/25"} 1
+nut_variable_info{server="nas",ups="ups",variable="battery.mfr.date",value="2026/11/06"} 1
+nut_variable_info{server="nas",ups="ups",variable="battery.type",value="PbAc"} 1
+nut_variable_info{server="nas",ups="ups",variable="device.mfr",value="American Power Conversion"} 1
+nut_variable_info{server="nas",ups="ups",variable="device.model",value="Back-UPS RS 1500G"} 1
+nut_variable_info{server="nas",ups="ups",variable="device.serial",value="XX0000X00000  "} 1
+nut_variable_info{server="nas",ups="ups",variable="device.type",value="ups"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.name",value="usbhid-ups"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.parameter.pollfreq",value="30"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.parameter.pollinterval",value="2"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.parameter.port",value="auto"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.parameter.synchronous",value="no"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.version",value="2.7.4"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.version.data",value="APC HID 0.96"} 1
+nut_variable_info{server="nas",ups="ups",variable="driver.version.internal",value="0.41"} 1
+nut_variable_info{server="nas",ups="ups",variable="input.sensitivity",value="medium"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.beeper.status",value="disabled"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.firmware",value="878.L5 .I"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.firmware.aux",value="L5 "} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.mfr",value="American Power Conversion"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.mfr.date",value="2022/06/03"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.model",value="Back-UPS RS 1500G"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.productid",value="0002"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.serial",value="XX0000X00000  "} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.status",value="OL"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.test.result",value="No test initiated"} 1
+nut_variable_info{server="nas",ups="ups",variable="ups.vendorid",value="051d"} 1
+nut_variable_timestamp_seconds{server="nas",ups="ups",variable="battery.date"} 1001376000
+nut_variable_timestamp_seconds{server="nas",ups="ups",variable="battery.mfr.date"} 1793923200
+nut_variable_timestamp_seconds{server="nas",ups="ups",variable="ups.mfr.date"} 1654214400
+nut_ups_status{server="nas",ups="ups",flag="OL"} 1
+nut_ups_status{server="nas",ups="ups",flag="OB"} 0
+nut_ups_status{server="nas",ups="ups",flag="LB"} 0
+nut_ups_status{server="nas",ups="ups",flag="HB"} 0
+nut_ups_status{server="nas",ups="ups",flag="RB"} 0
+nut_ups_status{server="nas",ups="ups",flag="CHRG"} 0
+nut_ups_status{server="nas",ups="ups",flag="DISCHRG"} 0
+nut_ups_status{server="nas",ups="ups",flag="BYPASS"} 0
+nut_ups_status{server="nas",ups="ups",flag="CAL"} 0
+nut_ups_status{server="nas",ups="ups",flag="OFF"} 0
+nut_ups_status{server="nas",ups="ups",flag="OVER"} 0
+nut_ups_status{server="nas",ups="ups",flag="TRIM"} 0
+nut_ups_status{server="nas",ups="ups",flag="BOOST"} 0
+nut_ups_status{server="nas",ups="ups",flag="FSD"} 0
+nut_ups_status{server="nas",ups="ups",flag="ALARM"} 0
+nut_ups_status{server="nas",ups="ups",flag="WAIT"} 0
