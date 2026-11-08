@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package classify
 
 import (
@@ -64,13 +67,14 @@ func TestFixture(t *testing.T) {
 // Catches ParseFloat-only classification and numeric allow lists.
 func TestGrammar(t *testing.T) {
 	c, _ := New(nil, nil)
-	for _, value := range []string{"1e3", "+1", "1.", ".5", " 1", "1 ", "1,5", "0x10", "0x1p3", "Inf", "NaN", "", "hello", "--1", "1\n", "１"} {
+	for _, value := range []string{"1e3", "+1", "1.", ".5", "\t1", "1\t", " 1 1", "1,5", "0x10", "0x1p3", "Inf", "NaN", "", "hello", "--1", "1\n", "１"} {
 		k, v, e := c.Classify("experimental.foo.bar", value)
 		if k != Text || v != 0 || e {
 			t.Errorf("%q: (%v,%v,%v)", value, k, v, e)
 		}
 	}
-	for value, want := range map[string]float64{"01200.2": 1200.2, "-12.5": -12.5, "0": 0, "12.5": 12.5} {
+	for value, want := range map[string]float64{"01200.2": 1200.2, "-12.5": -12.5, "0": 0, "12.5": 12.5,
+		"  11.7": 11.7, "12 ": 12, " -1 ": -1} { // space padding of fixed-width drivers
 		k, v, e := c.Classify("experimental.foo.bar", value)
 		if k != Gauge || v != want || e {
 			t.Errorf("%q: (%v,%v,%v)", value, k, v, e)
@@ -163,5 +167,22 @@ func TestCatalogueOpaqueIsText(t *testing.T) {
 	}
 	if k, _, _ := c.Classify("battery.charge", "12"); k != Gauge {
 		t.Error("battery.charge=12 not a gauge")
+	}
+}
+
+// Catches: padding trimmed before the name rules (padded serials as gauges), forced numeric
+// failing on padded values, and digit-only auxiliary models as gauges (nut-ddl: ups.model.aux).
+func TestPadding(t *testing.T) {
+	c, err := New([]string{"experimental.n"}, []string{"ups.load"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, value := range map[string]string{"ups.serial": "  240923", "ups.model.aux": "1500", "ups.load": " 12"} {
+		if k, _, _ := c.Classify(name, value); k != Text {
+			t.Errorf("%s=%q classified as gauge", name, value)
+		}
+	}
+	if k, v, e := c.Classify("experimental.n", " 7 "); k != Gauge || v != 7 || e {
+		t.Errorf("forced padded: (%v,%v,%v)", k, v, e)
 	}
 }

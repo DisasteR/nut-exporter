@@ -130,11 +130,13 @@ Each variable is exported as exactly one of: a gauge, or a text info series.
 2. Name matches the built-in opaque list → text. It encodes NUT's documented opaque, identifier,
    enum and date fields, not vendors:
    `*.serial *.id *.vendorid *.productid *.date *.date.* *.time *.firmware *.firmware.*
-   *.version *.version.* *.mfr *.model *.name *.desc *.description *.contact *.location *.part
+   *.version *.version.* *.mfr *.model *.model.* *.name *.desc *.description *.contact *.location *.part
    *.macaddr *.type *.status *.alarm *.result *.reason *.sensitivity *.mode *.feed.color
    driver.parameter.* driver.flag.* driver.state`.
-3. Value matches the NUT numeric grammar `^-?[0-9]+(\.[0-9]+)?$` (`nut-names.txt:97-124`) →
-   gauge.
+3. Value, without leading and trailing ASCII spaces, matches the NUT numeric grammar
+   `^-?[0-9]+(\.[0-9]+)?$` (`nut-names.txt:97-124`) → gauge. Fixed-width drivers pad numbers
+   (nut-ddl: bcmxcp, bcmxcp_usb, upscode2, tripplite_usb, e.g. `"  11.7"`); text series and
+   `/inventory` keep the value verbatim.
 4. Anything else → text.
 
 A deny list of opaque names rather than an allow list of numeric names: drivers publish many
@@ -234,9 +236,15 @@ Patterns:
   indexed family only as a documented equivalent, else the generator fails. `device.uptime`
   states its unit in the sentence ("in seconds"); `*.percent` names carry the unit.
   Placeholders `x`/`xxx` (`driver.parameter.xxx`) are text and skipped.
-- Entries the catalogue marks opaque (description containing "opaque") are always text: the
-  generator emits them as `catalog.Text` patterns, used by classification (§4) with the
-  built-in opaque list.
+- Entries the catalogue marks opaque (description containing "opaque") are always text, and so
+  are entries stating no unit whose example value is a word: enums such as `ups.start.auto`
+  (`yes`), `outlet.n.switch` (`on`), `ups.beeper.status` (`enabled`), with or without their
+  values in the description. An example starting with a number stays numeric (`0 (immediate)`,
+  decimal comma `21,52`). Drivers that publish such an enum as digits (nut-ddl: `0`/`1`,
+  `128.00` for `ups.start.auto`) stay in `nut_variable_info` with the other drivers instead of
+  switching family. The generator emits these as `catalog.Text` patterns, used by
+  classification (§4) with the built-in opaque list, and logs the entries made text by their
+  example for review.
 
 Name: `nut_` + the pattern without its index/context part, `.` and `-` replaced by `_`, + a unit
 suffix when the catalogue states a unit in the description's last parentheses and the name does
@@ -245,19 +253,24 @@ seconds, `degrees C` celsius, `degrees` degrees, `Hz` hertz, `VA` / `Volt-Amps` 
 `W` / `Watts` watts, `Ah` ampere_hours, `min` minutes. Final parentheses that are not units are
 listed (`yes/no`, `dimensionless ...`); any other text fails the generation, so a new unit is
 reviewed. A pattern stating no unit takes the one its base name states elsewhere (spec `load`
-takes `percent` from `input.load`). No value is converted: the suffix states the NUT unit, and
-NUT sentinels pass through (`ups.timer.shutdown` -1 = no timer running). Example: `battery.runtime` -> `nut_battery_runtime_seconds`,
+takes `percent` from `input.load`). No value is converted, bounded or validated: the suffix is
+the unit the catalogue declares, not a checked measurement. NUT sentinels pass through
+(`ups.timer.shutdown` -1 = no timer running), and so do driver defects (nut-ddl:
+`ups.temperature` 294-302 or 255, `battery.charge` -197.6, a 255-digit `ups.load`); upgrade the
+driver, or use `classify.text` / a variable filter to quarantine a variable. Example: `battery.runtime` -> `nut_battery_runtime_seconds`,
 `input.L1-N.voltage` -> `nut_input_voltage_volts{phase="L1-N"}`,
 `ambient.1.temperature` -> `nut_ambient_temperature_celsius{ambient="1"}`.
 
 Rules:
 - Classification (§4) decides first: a catalogue variable whose value is not a gauge stays text in
   `nut_variable_info`. Only gauges take the catalogue name.
-- HELP states the NUT name pattern and unit, no NUT prose; descriptions are in `/inventory`
+- HELP states the NUT name pattern and the declared unit (`NUT battery.charge (catalogue unit:
+  percent).`), no NUT prose; descriptions are in `/inventory`
   (`GET DESC`).
 - The generator fails when two patterns give one metric name with different labels or units. A
-  name equal to a fixed family (`ups.status`, `server.info`) or under `nut_variable_` is left to
-  the generic families and listed in the generated `excluded`. The lookup is injective (a
+  name equal to a fixed family or under `nut_variable_` is left to the generic families and
+  listed in the generated `excluded` (empty at 1c4ab78: `ups.status` and `server.info` are
+  text). The lookup is injective (a
   variable name and its family + label value determine each other), so two distinct variables
   never share a series.
 - A unit is never inherited from a parent name: `battery.voltage.low` states none and has no
@@ -281,7 +294,7 @@ exported) or `nut_server_suppressed{reason}` (number of UPSes), and the value st
 | `filter` | `ups`/`variables` include/exclude (exclude wins) | include all |
 | `encoding` | text value not valid UTF-8 (Prometheus label values must be UTF-8) | always |
 | `length` | label value longer than `max_length` bytes; never truncated or hashed | 1024 |
-| `churn` | turnover: the label sets of a (family, variable) key seen within `churn_window` but absent now reach `max_distinct` (a single-valued variable is suppressed at its `max_distinct`-th distinct value); applies to `nut_variable_info`, clients, type, enum, range. The size of a family never triggers it: commands and writable names are static driver data, bounded by `series_cap` | 100 / 24 h |
+| `churn` | turnover: the label sets of a (family, variable) key seen within `churn_window` but absent now reach `max_distinct` (a single-valued variable is suppressed at its `max_distinct + 1`-th distinct value within the window: `max_distinct` values are kept); applies to `nut_variable_info`, clients, type, enum, range. The size of a family never triggers it: commands and writable names are static driver data, bounded by `series_cap` | 100 / 24 h |
 | `duplicate` | a name repeated in one LIST answer (variable, RW) or in `LIST UPS`: the last one wins, the others are counted; duplicate series would make the registry fail the whole scrape. `LIST UPS` duplicates are resolved before the UPS filter and `max_ups` | always |
 | `ups_cap` | more than `max_ups` per server; UPSes kept in name order | 256 |
 | `series_cap` | more than `max_series` UPS-scoped series; health, query and suppression families are outside the budget, as is `nut_ups_logins`; families dropped whole in this order: enum, range, type, writable, commands, clients, timestamps; then variables in reverse name order, text and gauges alike | 20000 |

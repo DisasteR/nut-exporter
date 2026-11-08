@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Package classify maps NUT values to gauges or opaque text.
 package classify
 
@@ -6,6 +9,7 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DisasteR/nut-exporter/internal/catalog"
@@ -21,7 +25,7 @@ const (
 // Opaque lists the built-in opaque name patterns.
 var Opaque = []string{
 	"*.serial", "*.id", "*.vendorid", "*.productid", "*.date", "*.date.*", "*.time",
-	"*.firmware", "*.firmware.*", "*.version", "*.version.*", "*.mfr", "*.model", "*.name",
+	"*.firmware", "*.firmware.*", "*.version", "*.version.*", "*.mfr", "*.model", "*.model.*", "*.name",
 	"*.desc", "*.description", "*.contact", "*.location", "*.part", "*.macaddr", "*.type",
 	"*.status", "*.alarm", "*.result", "*.reason", "*.sensitivity", "*.mode", "*.feed.color",
 	"driver.parameter.*", "driver.flag.*", "driver.state",
@@ -62,8 +66,10 @@ func (c *Classifier) Classify(name, value string) (Kind, float64, bool) {
 	if !forced && (matches(Opaque, name) || matches(catalog.Text, name)) {
 		return Text, 0, false
 	}
-	if number.MatchString(value) {
-		if v, err := strconv.ParseFloat(value, 64); err == nil {
+	// Fixed-width drivers (bcmxcp, upscode2, tripplite_usb) pad numbers with spaces; the value
+	// itself is kept verbatim for text and the inventory.
+	if n := strings.Trim(value, " "); number.MatchString(n) {
+		if v, err := strconv.ParseFloat(n, 64); err == nil {
 			return Gauge, v, false
 		}
 	}

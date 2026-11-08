@@ -1,6 +1,10 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package catalog
 
 import (
+	"path"
 	"regexp"
 	"strings"
 	"testing"
@@ -29,10 +33,11 @@ func TestLookup(t *testing.T) {
 		"ambient.temperature":       {"nut_ambient_temperature_celsius", ""}, // unindexed = ambient.0
 		"outlet.current":            {"nut_outlet_current_amperes", ""},
 		"input.load":                {"nut_input_load_percent", ""},
-		"input.L2.load":             {"nut_input_load_percent", "L2"},  // spec states no unit
-		"input.phases":              {"nut_input_phases", ""},          // defined in prose
-		"device.uptime":             {"nut_device_uptime_seconds", ""}, // unit stated in the sentence
-		"outlet.switchable":         {"nut_outlet_switchable", ""},     // outlet = outlet.0
+		"input.L2.load":             {"nut_input_load_percent", "L2"},    // spec states no unit
+		"input.phases":              {"nut_input_phases", ""},            // defined in prose
+		"device.uptime":             {"nut_device_uptime_seconds", ""},   // unit stated in the sentence
+		"battery.alarm.threshold":   {"nut_battery_alarm_threshold", ""}, // example "0 (immediate)"
+		"ups.test.interval":         {"nut_ups_test_interval_seconds", ""},
 		"input.L1.power.percent":    {"nut_input_power_percent", "L1"},
 	} {
 		m, ok := Lookup(name)
@@ -50,6 +55,9 @@ func TestLookup(t *testing.T) {
 		"input.{phase}.voltage", "outlet.{outlet}.voltage", // a pattern's own text
 		"outlet.group.count", // groups count, not outlets of a group: generic
 		"input.L1.frequency", // frequency is aggregate-only in the catalogue
+		// word-valued examples (yes, on, enabled...): text, whatever the driver sends
+		"ups.start.auto", "battery.protection", "outlet.switchable", "outlet.3.switchable",
+		"outlet.group.1.switch", "ambient.1.present", "input.L1.voltage.status", "device.model",
 	} {
 		if m, ok := Lookup(name); ok {
 			t.Errorf("%s: matched %s", name, m.Family.Name)
@@ -93,7 +101,32 @@ func TestFamiliesInvariants(t *testing.T) {
 		}
 	}
 	// Changes only with a deliberate regeneration (metric names are a contract).
-	if len(names) != 421 || len(Text) != 50 {
+	if len(names) != 357 || len(Text) != 135 {
 		t.Errorf("%d families, %d text patterns: regenerated catalogue, update deliberately", len(names), len(Text))
+	}
+}
+
+// Catches: word-valued catalogue entries (enums whose example is a word) left out of Text, so a
+// driver sending digits would switch them to a gauge family.
+func TestWordValuedAreText(t *testing.T) {
+	text := func(name string) bool {
+		for _, p := range Text {
+			if ok, _ := path.Match(p, name); ok {
+				return true
+			}
+		}
+		return false
+	}
+	for _, name := range []string{"ups.start.auto", "ups.start.battery", "ups.shutdown", "battery.energysave",
+		"input.voltage.extended", "input.transfer.bypass.forced", "outlet.2.switchable", "outlet.switch",
+		"outlet.group.3.status", "ambient.present", "ambient.4.humidity.alarm", "outlet.group.1.phase"} {
+		if !text(name) {
+			t.Errorf("%s not in Text", name)
+		}
+	}
+	for _, name := range []string{"battery.voltage.low", "battery.alarm.threshold", "ups.test.interval", "battery.charge"} {
+		if text(name) {
+			t.Errorf("%s in Text", name)
+		}
 	}
 }

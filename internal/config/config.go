@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Package config loads and validates the exporter configuration (design §7).
 package config
 

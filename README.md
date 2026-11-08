@@ -38,12 +38,15 @@ Every UPS-scoped series has `server` (configured name, or the address with `-nut
 | `nut_server_up`, `nut_ups_up`, `nut_query_success{query}`, `nut_query_error_info{query,error}` | collection health |
 | `nut_suppressed{family,reason}`, `nut_server_suppressed{reason}` | series not exported by a filter or guard |
 
-A variable is a gauge when its name is not a documented opaque field (serials, IDs, dates,
-firmware, versions, statuses...) and its value is a NUT number; otherwise it is text. Override
+A variable is a gauge when its name is not a documented opaque or enumerated field (serials, IDs,
+dates, firmware, versions, statuses, yes/no and on/off settings...) and its value is a NUT number,
+spaces around it allowed; otherwise it is text. Override
 with `classify.numeric` / `classify.text`. A gauge takes its catalogue name when NUT documents
 it, `nut_variable_value` otherwise; each value is exported once. `/inventory` gives the metric of
 every variable (`metric`). The unit suffix is the one NUT states; where NUT states none
-(`battery.voltage.low`) there is no suffix. Three-phase values carry `phase` (`L1`, `L1-N`...),
+(`battery.voltage.low`) there is no suffix. The suffix is the declared unit, not a checked one:
+values pass through unchanged, including driver defects (a temperature in kelvins, 255
+sentinels); quarantine such a variable with `classify.text` or `variables.exclude`. Three-phase values carry `phase` (`L1`, `L1-N`...),
 the aggregate one `phase=""`: filter on `phase` before summing.
 
 Examples:
@@ -75,9 +78,22 @@ limits:     { max_line: 8192, max_response: 4194304 }
 workers: 2
 ```
 
+Some drivers publish diagnostics under `ups.debug.*` (raw protocol frames); when they are not
+needed, `variables: { exclude: ["ups.debug.*"] }` drops them. Text values that keep changing
+are otherwise cut by the churn guard and counted in `nut_suppressed{reason="churn"}`.
+
 ## Build and test
 
 ```sh
 go test -race ./...
+# Replay NUT's device dumps (git clone https://github.com/networkupstools/nut-ddl):
+NUT_DDL=../nut-ddl NUT_DDL_OUT=/tmp/ddl.jsonl go test ./internal/export -run TestDDLCorpus
 docker build --build-arg VERSION=<version> -t nut-exporter:<version> .
 ```
+
+## Licence
+
+Apache License 2.0 (`LICENSE`). `NOTICE` states the provenance of the generated NUT catalogue
+(names and units from NUT's GPL-2.0-or-later `docs/nut-names.txt`, no description text). The
+container image ships the licence and notice files of every compiled-in module under
+`/licenses`.

@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package export_test
 
 import (
@@ -242,14 +245,14 @@ func TestStatusTokensCap(t *testing.T) {
 	expect(t, got, uk("nut_variable_info", "nas", "ups", "variable", "ups.status", "value", raw), 1)
 }
 
-// Catches: numeric guessing beyond the NUT grammar, value rewriting, opaque identifiers turned into gauges,
+// Catches: numeric guessing beyond the NUT grammar (space padding aside), value rewriting, opaque identifiers turned into gauges,
 // bad escape handling, empty values dropped, invalid dates producing a timestamp (design section 4).
 func TestClassificationGrammarDatesEscapes(t *testing.T) {
 	u := newUPS("ups",
 		"experimental.n1", "01200.2", "experimental.n2", "1200.20", "experimental.n3", "+5",
 		"experimental.n4", "1e3", "experimental.n5", ".5", "experimental.n6", "5.",
 		"experimental.n7", "-0.5", "experimental.n8", "NaN", "experimental.n9", "", "experimental.n10", " 5",
-		"ups.serial", "123456", "ups.id", "42",
+		"experimental.n11", "\t5", "ups.serial", "123456", "ups.id", "42",
 		"battery.date", "2024/02/29", "battery.mfr.date", "2023/02/29", "ups.mfr.date", "2026-99-99",
 		"ups.test.date", "2025-02-28", "input.date", "2026/11-08", "ups.date.last", "11/07/26",
 		"ups.date.start", "2000/02/29",
@@ -262,7 +265,11 @@ func TestClassificationGrammarDatesEscapes(t *testing.T) {
 	expect(t, got, val("experimental.n1"), 1200.2)
 	expect(t, got, val("experimental.n2"), 1200.2)
 	expect(t, got, val("experimental.n7"), -0.5)
-	for n, v := range map[string]string{"n3": "+5", "n4": "1e3", "n5": ".5", "n6": "5.", "n8": "NaN", "n9": "", "n10": " 5"} {
+	expect(t, got, val("experimental.n10"), 5) // space padding of fixed-width drivers
+	if v := invVar(t, invUPS(t, e.inventory(), "nas", "ups"), "experimental.n10")["value"]; v != " 5" {
+		t.Errorf("inventory value %q, want verbatim \" 5\"", v)
+	}
+	for n, v := range map[string]string{"n3": "+5", "n4": "1e3", "n5": ".5", "n6": "5.", "n8": "NaN", "n9": "", "n11": "\t5"} {
 		expect(t, got, info("experimental."+n, v), 1)
 		absent(t, got, val("experimental."+n))
 	}

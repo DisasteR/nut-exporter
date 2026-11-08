@@ -1,0 +1,13 @@
+nut-exporter
+Copyright 2026 The nut-exporter Authors
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+
+internal/catalog/catalog_gen.go is generated from docs/nut-names.txt of Network UPS Tools
+(https://github.com/networkupstools/nut, commit 1c4ab78), distributed under the GNU General
+Public License version 2 or later. Only variable names and the units the catalogue declares are
+extracted, as identifiers needed to interoperate with NUT; no description text is copied.
+
+Binaries and container images include third-party Go modules under their own licences
+(Apache-2.0, MIT, BSD-3-Clause); the container image ships their licence and notice files under
+/licenses.

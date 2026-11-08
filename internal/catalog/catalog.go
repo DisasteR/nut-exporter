@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Package catalog maps NUT variable names of the NUT catalogue to metric families (design §5b).
 // The table is generated from NUT's docs/nut-names.txt by ./gen.
 package catalog
@@ -47,11 +50,12 @@ func init() {
 // Families returns the catalogue families.
 func Families() []Family { return families }
 
-// Help is the HELP text of a family: NUT names and unit, no NUT prose.
+// Help is the HELP text of a family: NUT names and the unit the catalogue declares (not checked),
+// no NUT prose.
 func (f *Family) Help() string {
 	h := "NUT " + strings.Join(f.Patterns, ", ")
 	if f.Unit != "" {
-		h += " (" + f.Unit + ")"
+		h += " (catalogue unit: " + f.Unit + ")"
 	}
 	return h + "."
 }

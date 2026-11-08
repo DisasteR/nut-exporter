@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Command nut-exporter exports every variable and session metadata of NUT (upsd) servers to
 // Prometheus. See docs/design.md.
 package main

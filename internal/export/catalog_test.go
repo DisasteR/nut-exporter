@@ -1,3 +1,6 @@
+// Copyright 2026 The nut-exporter Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package export_test
 
 import (
@@ -26,7 +29,7 @@ func TestCatalogueNamedGauges(t *testing.T) {
 	})
 	expect(t, got, uk("nut_variable_info", "nas", "ups", "variable", "ups.serial", "value", "0002"), 1)
 	for _, want := range []string{
-		"# HELP nut_battery_charge_percent NUT battery.charge (percent).",
+		"# HELP nut_battery_charge_percent NUT battery.charge (catalogue unit: percent).",
 		"# TYPE nut_battery_charge_percent gauge",
 	} {
 		if !strings.Contains(body, want+"\n") {
