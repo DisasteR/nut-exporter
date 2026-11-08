@@ -158,7 +158,7 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | Family | Extra labels | Source / value |
 |---|---|---|
 | `nut_server_up` | | 1 if `LIST UPS` succeeded |
-| `nut_server_info` | `version`, `protocol` | 1; raw `VER`, `NETVER` (label empty if that query failed or its answer is not a valid label; raw in `/inventory`) |
+| `nut_server_info` | `version`, `protocol` | 1; raw `VER`, `NETVER` (label empty if that query failed or its answer is not a valid label; the latter shows as an empty label with `nut_server_query_success` 1; raw in `/inventory`) |
 | `nut_server_query_success` | `query` | 1/0 for `discovery`, `version`, `protocol` |
 | `nut_server_suppressed` | `reason` | UPSes not exported: `filter`, `ups_cap` (not collected), `encoding` (name not UTF-8), `duplicate` |
 | `nut_ups_info` | `description` | 1; `LIST UPS`; exported whenever the UPS is listed |
@@ -223,7 +223,8 @@ items are bounded by `limits.max_response` per LIST answer and `max_ups` per ser
 for a hostile server: `max_ups` x 5 core answers x `max_response` per collection, about 5 GiB with
 defaults; lower `max_ups`/`max_response` where that matters); a churn key keeps at most `max_distinct + 1` value hashes, then only a
 saturated mark until the window slides; unknown status flags at most 32 per UPS; metadata entries
-only for listed items, their values at most `limits.max_response` bytes per UPS. State is keyed by server/UPS/item and dropped when the item is absent from
+only for listed items, their values at most `limits.max_response` bytes per UPS (each value
+counted as its bytes + 16). State is keyed by server/UPS/item and dropped when the item is absent from
 a successful `LIST UPS`/`LIST VAR`/`LIST CMD`. Churn state is in memory; a restart resets it.
 
 ## 6b. Inventory
@@ -251,8 +252,9 @@ a successful `LIST UPS`/`LIST VAR`/`LIST CMD`. Churn state is in memory; a resta
 - When `LIST VAR` fails, `variables` lists the cached variables with `"value": null` and their
   metadata; when `LIST CMD` fails, `commands` lists the cached commands with their description.
 - A UPS skipped by the UPS filter or `max_ups` is listed with `"collected": false` and the reason.
-- Response limits (`limits.max_line`, newline included; `limits.max_response`, every byte of the
-  answer including `BEGIN`/`END` lines) are configurable; exceeding them
+- Response limits (`limits.max_line` per line, newline included; `limits.max_response` per `LIST`
+  answer, every byte including `BEGIN`/`END` lines; single-line answers are bounded by
+  `max_line`) are configurable; exceeding them
   fails that query with `too_large`, and the snapshot reports it incomplete.
 
 ## 7. Configuration

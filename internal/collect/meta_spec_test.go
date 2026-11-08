@@ -123,3 +123,29 @@ func TestSpecMetadataDeletedInFlight(t *testing.T) {
 		}
 	}
 }
+
+// Catches: a budget counting string bytes only, which empty values bypass (each costs a header).
+func TestMetadataBudgetCountsEmptyValues(t *testing.T) {
+	m := newMetaCache(time.Hour)
+	m.budget = 4096
+	vars := make([]string, 20)
+	for i := range vars {
+		vars[i] = string(rune('a' + i))
+	}
+	m.sync([]UPS{specListed("u", vars...)})
+	empties := make([]string, 100) // 0 bytes of text, 100 retained strings
+	rejected := 0
+	for {
+		j, ok := m.due()
+		if !ok {
+			break
+		}
+		m.commit(j, empties, nil)
+		if j.e.Error == "too_large" {
+			rejected++
+		}
+	}
+	if rejected == 0 {
+		t.Fatal("80 lists of 100 empty values all accepted under a 4096-byte budget")
+	}
+}

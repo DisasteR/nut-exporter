@@ -215,6 +215,9 @@ func (c *Conn) list(ctx context.Context, args ...string) ([][]string, error) {
 	if !equal(tok, append([]string{"BEGIN"}, req...)) {
 		return nil, c.fail(fmt.Errorf("%w: expected BEGIN %s, got %q", ErrProtocol, strings.Join(req, " "), tok))
 	}
+	if read > c.opt.MaxResponse {
+		return nil, c.fail(fmt.Errorf("%w: answer larger than %d bytes", ErrTooLarge, c.opt.MaxResponse))
+	}
 	end := append([]string{"END"}, req...)
 	prefix := append([]string{args[0]}, args[1:]...)
 	var items [][]string

@@ -197,14 +197,22 @@ func (um *upsMeta) first(now time.Time) (job, bool) {
 	return best, found
 }
 
-// size is the number of bytes of retained values of a UPS.
+// stringCost approximates the memory of a retained string: its bytes plus its header, so a list
+// of empty values is not free.
+const stringCost = 16
+
+func cost(values []string) int {
+	n := 0
+	for _, v := range values {
+		n += len(v) + stringCost
+	}
+	return n
+}
+
+// size is the approximate memory of the retained values of a UPS.
 func (um *upsMeta) size() int {
 	n := 0
-	add := func(e *entry) {
-		for _, v := range e.Value {
-			n += len(v)
-		}
-	}
+	add := func(e *entry) { n += cost(e.Value) }
 	for _, qs := range um.vars {
 		for _, e := range qs {
 			add(e)
@@ -234,14 +242,7 @@ func (m *metaCache) commit(j job, value []string, err error) {
 		return
 	}
 	if err == nil {
-		grow := 0
-		for _, v := range value {
-			grow += len(v)
-		}
-		for _, v := range cur.Value {
-			grow -= len(v)
-		}
-		if grow > 0 && um.size()+grow > m.budget {
+		if grow := cost(value) - cost(cur.Value); grow > 0 && um.size()+grow > m.budget {
 			err = fmt.Errorf("%w: metadata of UPS %s over %d bytes", nut.ErrTooLarge, j.ups, m.budget)
 		}
 	}

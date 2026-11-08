@@ -81,3 +81,12 @@ func TestSpecMidListError(t *testing.T) {
 		t.Error("mid-list error left connection usable")
 	}
 }
+
+// Catches: a BEGIN line over MaxResponse accepted until another line arrives.
+func TestBeginLineCountsTowardsMaxResponse(t *testing.T) {
+	c := specConn(t, "LIST UPS\n", "BEGIN LIST UPS\n", Options{MaxResponse: 10})
+	_, err := c.ListUPS(context.Background())
+	if !errors.Is(err, ErrTooLarge) || !c.Broken() {
+		t.Errorf("err=%v broken=%v, want ErrTooLarge and a broken connection", err, c.Broken())
+	}
+}

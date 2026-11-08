@@ -14,11 +14,11 @@ func TestSpecMetadataRetainedBudget(t *testing.T) {
 	u := newUPS("a", "x", "1")
 	u.typ = map[string]string{"x": "NUMBER"}
 	u.descs = map[string]string{"x": strings.Repeat("d", 300)}
-	old := strings.Repeat("e", 206) // 300 description + 6 type + 206 enum = 512 bytes exactly.
+	old := strings.Repeat("e", 206) // 300 desc + 6 type + 206 enum + 3 values x 16 = 560 bytes exactly.
 	u.enum = map[string][]string{"x": {old}}
 	f := newFake(t, u)
 	cfg := baseCfg()
-	cfg.Limits.MaxResponse = 512
+	cfg.Limits.MaxResponse = 560
 	cfg.MetadataTTL = time.Second
 	e := newEnv(t, cfg, named{name: "s", f: f})
 	e.scrape()
