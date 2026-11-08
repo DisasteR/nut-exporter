@@ -213,9 +213,9 @@ func (p *projector) variables(sc []string, u collect.UPS, sup suppressions) []sa
 	listed := map[string]bool{}
 	for i, v := range u.Vars {
 		kind, num, parseErr := p.cls.Classify(v.Name, v.Value)
-		fam := fInfo
+		fam, gaugeLabels := fInfo, []string(nil)
 		if kind == classify.Gauge {
-			fam = fValue
+			fam, gaugeLabels = gaugeSample(sc, v.Name)
 		}
 		if last[v.Name] != i {
 			sup.add(fam, "duplicate", 1)
@@ -239,7 +239,7 @@ func (p *projector) variables(sc []string, u collect.UPS, sup suppressions) []sa
 			p.st.parseErrors[key(sc[0], sc[1], v.Name)]++
 		}
 		if kind == classify.Gauge {
-			out = append(out, sample{f: fValue, labels: with(sc, v.Name), value: num, group: v.Name})
+			out = append(out, sample{f: fam, labels: gaugeLabels, value: num, group: v.Name})
 			continue
 		}
 		info := sample{f: fInfo, labels: with(sc, v.Name, v.Value), value: 1, group: v.Name}

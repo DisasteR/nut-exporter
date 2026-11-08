@@ -1,22 +1,22 @@
 # Hand-written expectation for testdata/apc-back-ups-rs-1500g.txt (design section 4).
 # Server "nas", UPS "ups". Opaque names are info series with the exact text; other values
 # matching ^-?[0-9]+(\.[0-9]+)?$ are gauges; *.date values yield a 00:00 UTC timestamp.
-nut_variable_value{server="nas",ups="ups",variable="battery.charge"} 100
-nut_variable_value{server="nas",ups="ups",variable="battery.charge.low"} 10
-nut_variable_value{server="nas",ups="ups",variable="battery.charge.warning"} 50
-nut_variable_value{server="nas",ups="ups",variable="battery.runtime"} 25500
-nut_variable_value{server="nas",ups="ups",variable="battery.runtime.low"} 120
-nut_variable_value{server="nas",ups="ups",variable="battery.voltage"} 27.3
-nut_variable_value{server="nas",ups="ups",variable="battery.voltage.nominal"} 24
-nut_variable_value{server="nas",ups="ups",variable="input.transfer.high"} 294
-nut_variable_value{server="nas",ups="ups",variable="input.transfer.low"} 176
-nut_variable_value{server="nas",ups="ups",variable="input.voltage"} 237
-nut_variable_value{server="nas",ups="ups",variable="input.voltage.nominal"} 230
-nut_variable_value{server="nas",ups="ups",variable="ups.delay.shutdown"} 20
-nut_variable_value{server="nas",ups="ups",variable="ups.load"} 0
-nut_variable_value{server="nas",ups="ups",variable="ups.realpower.nominal"} 865
-nut_variable_value{server="nas",ups="ups",variable="ups.timer.reboot"} 0
-nut_variable_value{server="nas",ups="ups",variable="ups.timer.shutdown"} -1
+nut_battery_charge_percent{server="nas",ups="ups"} 100
+nut_battery_charge_low_percent{server="nas",ups="ups"} 10
+nut_battery_charge_warning_percent{server="nas",ups="ups"} 50
+nut_battery_runtime_seconds{server="nas",ups="ups"} 25500
+nut_battery_runtime_low_seconds{server="nas",ups="ups"} 120
+nut_battery_voltage_volts{server="nas",ups="ups"} 27.3
+nut_battery_voltage_nominal_volts{server="nas",ups="ups"} 24
+nut_input_transfer_high_volts{server="nas",ups="ups"} 294
+nut_input_transfer_low_volts{server="nas",ups="ups"} 176
+nut_input_voltage_volts{phase="",server="nas",ups="ups"} 237
+nut_input_voltage_nominal_volts{phase="",server="nas",ups="ups"} 230
+nut_ups_delay_shutdown_seconds{server="nas",ups="ups"} 20
+nut_ups_load_percent{server="nas",ups="ups"} 0
+nut_ups_realpower_nominal_watts{server="nas",ups="ups"} 865
+nut_ups_timer_reboot_seconds{server="nas",ups="ups"} 0
+nut_ups_timer_shutdown_seconds{server="nas",ups="ups"} -1
 nut_variable_info{server="nas",ups="ups",variable="battery.date",value="2001/09/25"} 1
 nut_variable_info{server="nas",ups="ups",variable="battery.mfr.date",value="2026/11/06"} 1
 nut_variable_info{server="nas",ups="ups",variable="battery.type",value="PbAc"} 1

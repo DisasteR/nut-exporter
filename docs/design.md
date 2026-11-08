@@ -167,7 +167,8 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | `nut_ups_up` | | 1 if `LIST VAR` succeeded this scrape |
 | `nut_query_success` | `query` | 1/0 per core query of this scrape (`vars`, `logins`, `clients`, `commands`, `rw`) |
 | `nut_query_error_info` | `query`, `error` | 1 per failed query; `error` = one of the 23 NUT error words of net-protocol.txt, `other` for any other word, `timeout`, `too_large`, `protocol` or `io`; the raw text is in `/inventory` |
-| `nut_variable_value` | `variable` | gauge |
+| `nut_<catalogue name>[_<unit>]` | index labels (§5b) | gauge; numeric variable named in the NUT catalogue |
+| `nut_variable_value` | `variable` | gauge; numeric variable outside the NUT catalogue |
 | `nut_variable_info` | `variable`, `value` | 1 |
 | `nut_variable_timestamp_seconds` | `variable` | Unix time |
 | `nut_ups_status` | `flag` | 0/1, only when `ups.status` was read |
@@ -200,6 +201,72 @@ Descriptions (`GET DESC`, `GET CMDDESC`) go to `/inventory` only: long, static, 
 
 Identity: `device.mfr`/`model`/`serial` are ordinary `nut_variable_info` series; dashboards join
 on `variable`. No duplicate identity metric.
+
+## 5b. Catalogue-named metrics
+
+NUT standardises variable names, meanings and units (`N/docs/nut-names.txt`). A numeric variable
+named in that catalogue gets its own metric; any other numeric variable stays in
+`nut_variable_value{variable}`, so export remains exhaustive. Each value is exported once.
+
+Source: the variable tables and the three-phase SPEC tables of `nut-names.txt` at a pinned NUT
+commit. A generator (`internal/catalog/gen`) writes `internal/catalog/catalog_gen.go`; the NUT
+text itself is not vendored, only names, index patterns and unit words. Regenerating is a
+deliberate change, reviewed through the generated diff (a renamed metric breaks dashboards).
+
+Patterns:
+- literal names (`battery.charge`);
+- `ambient.n.*`, `outlet.n.*`, `outlet.group.n.*`: `n` is a decimal index, exported as label
+  `ambient`, `outlet`, `outlet_group` (raw text, `01` and `1` stay distinct); every `outlet.n.X`
+  also exists as `outlet.group.n.X` with the same unit (nut-names.txt: the outlet data apply to
+  outlet groups);
+- three-phase `DOMAIN.CONTEXT.SPEC` and `DOMAIN.SPEC`, DOMAIN in `input`, `input.bypass`,
+  `input.servicebypass`, `output`, `output.bypass`, `output.inverter`, `output.servicebypass`,
+  CONTEXT in `L1-L2 L2-L3 L3-L1 L1-N L2-N L3-N L1 L2 L3 N`, exported as label `phase` (`""` for
+  `DOMAIN.SPEC`). Every domain takes every SPEC of the per-phase table (wider than the
+  catalogue's examples); aggregate-only SPECs (`frequency`) never take a context:
+  `input.L1.frequency` stays generic.
+- Unindexed forms join their family with the label empty: `DOMAIN.SPEC`, and `ambient.X` /
+  `outlet.X` for every `ambient.n.X` / `outlet.n.X` (NUT: `ambient.0` is equivalent to `ambient`;
+  drivers publish `ambient.temperature`). `ambient=""` and `ambient="0"` both denote the default
+  sensor, `outlet="0"` the whole unit, `phase=""` the aggregate: select labels before summing.
+- Names defined in prose only: `input.phases`, `output.phases`. `outlet.group.count` (number of
+  groups) is not `outlet.group.n.count` (outlets of a group): generic. A table literal joins an
+  indexed family only as a documented equivalent, else the generator fails. `device.uptime`
+  states its unit in the sentence ("in seconds"); `*.percent` names carry the unit.
+  Placeholders `x`/`xxx` (`driver.parameter.xxx`) are text and skipped.
+- Entries the catalogue marks opaque (description containing "opaque") are always text: the
+  generator emits them as `catalog.Text` patterns, used by classification (§4) with the
+  built-in opaque list.
+
+Name: `nut_` + the pattern without its index/context part, `.` and `-` replaced by `_`, + a unit
+suffix when the catalogue states a unit in the description's last parentheses and the name does
+not already end with it: `V` volts, `A` amperes, `percent` / `percent of ...` percent, `seconds`
+seconds, `degrees C` celsius, `degrees` degrees, `Hz` hertz, `VA` / `Volt-Amps` voltamperes,
+`W` / `Watts` watts, `Ah` ampere_hours, `min` minutes. Final parentheses that are not units are
+listed (`yes/no`, `dimensionless ...`); any other text fails the generation, so a new unit is
+reviewed. A pattern stating no unit takes the one its base name states elsewhere (spec `load`
+takes `percent` from `input.load`). No value is converted: the suffix states the NUT unit, and
+NUT sentinels pass through (`ups.timer.shutdown` -1 = no timer running). Example: `battery.runtime` -> `nut_battery_runtime_seconds`,
+`input.L1-N.voltage` -> `nut_input_voltage_volts{phase="L1-N"}`,
+`ambient.1.temperature` -> `nut_ambient_temperature_celsius{ambient="1"}`.
+
+Rules:
+- Classification (§4) decides first: a catalogue variable whose value is not a gauge stays text in
+  `nut_variable_info`. Only gauges take the catalogue name.
+- HELP states the NUT name pattern and unit, no NUT prose; descriptions are in `/inventory`
+  (`GET DESC`).
+- The generator fails when two patterns give one metric name with different labels or units. A
+  name equal to a fixed family (`ups.status`, `server.info`) or under `nut_variable_` is left to
+  the generic families and listed in the generated `excluded`. The lookup is injective (a
+  variable name and its family + label value determine each other), so two distinct variables
+  never share a series.
+- A unit is never inherited from a parent name: `battery.voltage.low` states none and has no
+  suffix (upstream documentation gap, not guessed). A variable whose value turns non-numeric moves to `nut_variable_info`, as
+  for generic gauges.
+- Guards and budget: same as `nut_variable_value` (group = variable name, `prioVariables`);
+  filters match the NUT variable name.
+- `/inventory` gives each variable's exported metric name (`metric`). Selecting every numeric
+  variable at once is no longer one family: use `/inventory` or `{__name__=~"nut_.*"}`.
 
 ## 6. Filters and guards
 

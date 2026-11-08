@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/DisasteR/nut-exporter/internal/catalog"
 )
 
 type Kind int
@@ -57,7 +59,7 @@ func (c *Classifier) Classify(name, value string) (Kind, float64, bool) {
 		return Text, 0, false
 	}
 	forced := matches(c.numeric, name)
-	if !forced && matches(Opaque, name) {
+	if !forced && (matches(Opaque, name) || matches(catalog.Text, name)) {
 		return Text, 0, false
 	}
 	if number.MatchString(value) {

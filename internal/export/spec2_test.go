@@ -177,7 +177,7 @@ func TestSpecHangingVersionsDoNotBlockUPS(t *testing.T) {
 	cfg.Timeouts.Scrape = 1500 * time.Millisecond
 	e := newEnv(t, cfg, named{name: "s", f: f})
 	got := e.scrape()
-	expect(t, got, uk("nut_variable_value", "s", "a", "variable", "battery.charge"), 83)
+	expect(t, got, uk("nut_battery_charge_percent", "s", "a"), 83)
 	for _, q := range []string{"version", "protocol"} {
 		expect(t, got, k("nut_server_query_success", "server", "s", "query", q), 0)
 	}

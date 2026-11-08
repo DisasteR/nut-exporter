@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 
+	"github.com/DisasteR/nut-exporter/internal/catalog"
 	"github.com/DisasteR/nut-exporter/internal/collect"
 	"github.com/DisasteR/nut-exporter/internal/config"
 	"github.com/DisasteR/nut-exporter/internal/export"
@@ -486,3 +487,13 @@ func invVar(t *testing.T, u map[string]any, name string) map[string]any {
 }
 
 func fakeErr(line string) fakeupsd.Response { return fakeupsd.Response{Lines: []string{line}} }
+
+// gaugeFamilies lists every family a numeric variable can be exported in: the generic one and
+// the catalogue-named ones (design §5b).
+func gaugeFamilies() []string {
+	out := []string{"nut_variable_value"}
+	for _, f := range catalog.Families() {
+		out = append(out, f.Name)
+	}
+	return out
+}

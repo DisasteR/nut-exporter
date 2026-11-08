@@ -46,6 +46,7 @@ type invVar struct {
 	Name       pstr               `json:"name"`
 	Value      *pstr              `json:"value"`                // null when LIST VAR failed (cached metadata only)
 	Export     string             `json:"export,omitempty"`     // gauge or info, before guards
+	Metric     string             `json:"metric,omitempty"`     // family the value is exported in, before guards
 	Suppressed string             `json:"suppressed,omitempty"` // reason the series was not exported
 	Metadata   map[string]invMeta `json:"metadata,omitempty"`
 }
@@ -141,12 +142,13 @@ func (e *Exporter) invUPS(res *Result, server string, u collect.UPS) invUPS {
 	}
 	if u.Queries[collect.QueryVars].OK() {
 		for _, v := range u.Vars {
-			export := "info"
+			export, metric := "info", fInfo.name
 			if k, _, _ := e.proj.cls.Classify(v.Name, v.Value); k == classify.Gauge {
-				export = "gauge"
+				f, _ := gaugeSample([]string{server, u.Name}, v.Name)
+				export, metric = "gauge", f.name
 			}
 			val := pstr(v.Value)
-			iu.Variables = append(iu.Variables, invVar{Name: pstr(v.Name), Value: &val, Export: export,
+			iu.Variables = append(iu.Variables, invVar{Name: pstr(v.Name), Value: &val, Export: export, Metric: metric,
 				Suppressed: res.varSup[key(server, u.Name, v.Name)], Metadata: meta(v.Name)})
 		}
 	} else {

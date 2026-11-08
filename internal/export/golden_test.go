@@ -35,7 +35,7 @@ func TestGoldenAPC(t *testing.T) {
 	}
 	defer fh.Close()
 	want := parse(t, fh)
-	fams := []string{"nut_variable_value", "nut_variable_info", "nut_variable_timestamp_seconds", "nut_ups_status"}
+	fams := append(gaugeFamilies(), "nut_variable_info", "nut_variable_timestamp_seconds", "nut_ups_status")
 	compare(t, "golden", onlyFamilies(got, fams...), onlyFamilies(want, fams...))
 	if n := len(onlyFamilies(want, fams...)); n != 65-3 {
 		t.Fatalf("expected file has %d series, hand count is 62", n)

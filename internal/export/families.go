@@ -2,7 +2,10 @@
 // (design §5, §6, §6b).
 package export
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/DisasteR/nut-exporter/internal/catalog"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 type family struct {
 	name   string
@@ -48,7 +51,7 @@ var (
 	fSuppressed  = &family{name: "nut_suppressed", help: "Series not exported this scrape, by family and reason.", labels: []string{"family", "reason"}, scope: scopeUPS}
 	fParseErrors = &family{name: "nut_variable_parse_errors_total", help: "Values of a variable forced numeric that did not parse.", labels: []string{"variable"}, scope: scopeUPS, kind: prometheus.CounterValue}
 	fLogins      = &family{name: "nut_ups_logins", help: "Sessions logged in to the UPS (GET NUMLOGINS).", scope: scopeUPS}
-	fValue       = &family{name: "nut_variable_value", help: "Numeric NUT variable, in NUT units.", labels: []string{"variable"}, scope: scopeUPS, budget: prioVariables}
+	fValue       = &family{name: "nut_variable_value", help: "Numeric NUT variable outside the NUT catalogue, in NUT units.", labels: []string{"variable"}, scope: scopeUPS, budget: prioVariables}
 	fInfo        = &family{name: "nut_variable_info", help: "Text NUT variable, value verbatim.", labels: []string{"variable", "value"}, scope: scopeUPS, budget: prioVariables}
 	fStatus      = &family{name: "nut_ups_status", help: "ups.status flags; only when ups.status was read.", labels: []string{"flag"}, scope: scopeUPS, budget: prioVariables}
 	fTimestamp   = &family{name: "nut_variable_timestamp_seconds", help: "Date variable as Unix time (00:00 UTC).", labels: []string{"variable"}, scope: scopeUPS, budget: prioTimestamps}
@@ -66,6 +69,40 @@ var families = []*family{
 	fUPSInfo, fUPSUp, fQuery, fQueryError, fMetaAge, fMetaErrors, fMetaPending, fSuppressed,
 	fParseErrors, fLogins, fValue, fInfo, fStatus, fTimestamp, fClients, fCommands, fWritable,
 	fType, fEnum, fRange, fBuildInfo,
+}
+
+// catFamilies are the catalogue-named gauge families (design §5b), by metric name.
+var catFamilies = map[string]*family{}
+
+func init() {
+	fixed := map[string]bool{}
+	for _, f := range families {
+		fixed[f.name] = true
+	}
+	for _, c := range catalog.Families() {
+		if fixed[c.Name] {
+			panic("catalogue family " + c.Name + " collides with a fixed family")
+		}
+		f := &family{name: c.Name, help: c.Help(), scope: scopeUPS, budget: prioVariables}
+		if c.Label != "" {
+			f.labels = []string{c.Label}
+		}
+		catFamilies[c.Name] = f
+		families = append(families, f)
+	}
+}
+
+// gaugeSample returns the family and labels of a numeric variable: its catalogue family when the
+// NUT catalogue names it, nut_variable_value otherwise.
+func gaugeSample(sc []string, name string) (*family, []string) {
+	if m, ok := catalog.Lookup(name); ok {
+		f := catFamilies[m.Family.Name]
+		if len(f.labels) > 0 {
+			return f, with(sc, m.LabelValue)
+		}
+		return f, with(sc)
+	}
+	return fValue, with(sc, name)
 }
 
 func (f *family) labelNames() []string {

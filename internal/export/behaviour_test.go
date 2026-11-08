@@ -34,9 +34,9 @@ func TestDistinctSeriesAndNewUPS(t *testing.T) {
 	f2 := newFake(t, s2)
 	e := newEnv(t, baseCfg(), named{name: "s1", f: f1}, named{name: "s2", f: f2})
 	got := e.scrape()
-	expect(t, got, uk("nut_variable_value", "s1", "a", "variable", "battery.charge"), 90)
-	expect(t, got, uk("nut_variable_value", "s1", "b", "variable", "battery.charge"), 80)
-	expect(t, got, uk("nut_variable_value", "s2", "a", "variable", "battery.charge"), 70)
+	expect(t, got, uk("nut_battery_charge_percent", "s1", "a"), 90)
+	expect(t, got, uk("nut_battery_charge_percent", "s1", "b"), 80)
+	expect(t, got, uk("nut_battery_charge_percent", "s2", "a"), 70)
 	expect(t, got, uk("nut_variable_info", "s1", "a", "variable", "device.model", "value", "M-a"), 1)
 	expect(t, got, uk("nut_variable_info", "s1", "b", "variable", "device.model", "value", "M-b"), 1)
 	expect(t, got, uk("nut_variable_info", "s2", "a", "variable", "device.model", "value", "M-a"), 1)
@@ -44,12 +44,12 @@ func TestDistinctSeriesAndNewUPS(t *testing.T) {
 	expect(t, got, uk("nut_ups_client_sessions", "s1", "a", "address", "10.0.0.2"), 1)
 	expect(t, got, k("nut_server_up", "server", "s1"), 1)
 	expect(t, got, k("nut_server_up", "server", "s2"), 1)
-	absentFamily(t, got, "ups", "c", "nut_variable_value")
+	absentFamily(t, got, "ups", "c", gaugeFamilies()...)
 
 	f1.update(func() { f1.ups = append(f1.ups, common("c")) })
 	got = e.scrape()
-	expect(t, got, uk("nut_variable_value", "s1", "c", "variable", "battery.charge"), 100)
-	expect(t, got, uk("nut_variable_value", "s1", "a", "variable", "battery.charge"), 90)
+	expect(t, got, uk("nut_battery_charge_percent", "s1", "c"), 100)
+	expect(t, got, uk("nut_battery_charge_percent", "s1", "a"), 90)
 }
 
 // Catches: a dead server hiding the others, and zeros exported for an unreachable server's UPSes (R6, R7).
@@ -65,8 +65,8 @@ func TestServerDownIsolated(t *testing.T) {
 	got := e.scrape()
 	expect(t, got, k("nut_server_up", "server", "dead"), 0)
 	expect(t, got, k("nut_server_up", "server", "good"), 1)
-	absentFamily(t, got, "server", "dead", "nut_ups_up", "nut_ups_info", "nut_variable_value", "nut_variable_info")
-	expect(t, got, uk("nut_variable_value", "good", "a", "variable", "battery.charge"), 100)
+	absentFamily(t, got, "server", "dead", append(gaugeFamilies(), "nut_ups_up", "nut_ups_info", "nut_variable_info")...)
+	expect(t, got, uk("nut_battery_charge_percent", "good", "a"), 100)
 }
 
 // Catches: ERR DATA-STALE on LIST VAR hiding clients/commands of that UPS, or the other UPS (R6, section 8).
@@ -87,9 +87,9 @@ func TestDataStaleIsolation(t *testing.T) {
 	expect(t, got, uk("nut_ups_client_sessions", "nas", "a", "address", "10.0.0.1"), 2)
 	expect(t, got, uk("nut_ups_command_info", "nas", "a", "command", "beeper.enable"), 1)
 	expect(t, got, uk("nut_query_success", "nas", "a", "query", "clients"), 1)
-	absentFamily(t, got, "ups", "a", "nut_variable_value", "nut_variable_info", "nut_ups_status", "nut_ups_logins")
+	absentFamily(t, got, "ups", "a", append(gaugeFamilies(), "nut_variable_info", "nut_ups_status", "nut_ups_logins")...)
 	expect(t, got, uk("nut_ups_up", "nas", "b"), 1)
-	expect(t, got, uk("nut_variable_value", "nas", "b", "variable", "battery.charge"), 100)
+	expect(t, got, uk("nut_battery_charge_percent", "nas", "b"), 100)
 	expect(t, got, uk("nut_ups_logins", "nas", "b"), 2)
 	expect(t, got, uk("nut_ups_status", "nas", "b", "flag", "OL"), 1)
 	expect(t, got, uk("nut_ups_client_sessions", "nas", "b", "address", "10.0.0.2"), 1)
@@ -122,7 +122,7 @@ func TestHangingUPSesDoNotStarveHealthy(t *testing.T) {
 		}
 	}
 	expect(t, got, uk("nut_ups_up", "nas", "c"), 1)
-	expect(t, got, uk("nut_variable_value", "nas", "c", "variable", "battery.charge"), 100)
+	expect(t, got, uk("nut_battery_charge_percent", "nas", "c"), 100)
 	expect(t, got, uk("nut_ups_logins", "nas", "c"), 2)
 	expect(t, got, uk("nut_ups_client_sessions", "nas", "c", "address", "10.0.0.1"), 2)
 	expect(t, got, uk("nut_ups_command_info", "nas", "c", "command", "beeper.enable"), 1)
@@ -150,8 +150,8 @@ func TestOnlyListVarHangs(t *testing.T) {
 	for _, qn := range []string{"logins", "clients", "commands", "rw"} {
 		expect(t, got, uk("nut_query_success", "nas", "a", "query", qn), 1)
 	}
-	absentFamily(t, got, "ups", "a", "nut_variable_value", "nut_variable_info", "nut_ups_status")
-	expect(t, got, uk("nut_variable_value", "nas", "b", "variable", "battery.charge"), 100)
+	absentFamily(t, got, "ups", "a", append(gaugeFamilies(), "nut_variable_info", "nut_ups_status")...)
+	expect(t, got, uk("nut_battery_charge_percent", "nas", "b"), 100)
 }
 
 // Catches: VER failure aborting the collection, or reported as success; absence of a version exported
@@ -170,7 +170,7 @@ func TestVersionFailure(t *testing.T) {
 			expect(t, got, k("nut_server_query_success", "server", "nas", "query", "discovery"), 1)
 			expect(t, got, k("nut_server_query_success", "server", "nas", "query", "version"), 0)
 			expect(t, got, k("nut_server_query_success", "server", "nas", "query", "protocol"), 1)
-			expect(t, got, uk("nut_variable_value", "nas", "a", "variable", "battery.charge"), 100)
+			expect(t, got, uk("nut_battery_charge_percent", "nas", "a"), 100)
 			expect(t, got, uk("nut_ups_logins", "nas", "a"), 2)
 			// Design 3 and 5 disagree (info removed vs empty label); either way no invented version.
 			for key := range onlyFamilies(got, "nut_server_info") {
@@ -268,7 +268,10 @@ func TestClassificationGrammarDatesEscapes(t *testing.T) {
 	}
 	expect(t, got, info("ups.serial", "123456"), 1)
 	expect(t, got, info("ups.id", "42"), 1)
+	// Opaque names never become gauges, generic or catalogue-named.
 	absent(t, got, val("ups.serial"))
+	absent(t, got, uk("nut_ups_serial", "nas", "ups"))
+	absent(t, got, uk("nut_ups_id", "nas", "ups"))
 	expect(t, got, info("device.contact", "a \"q\" b\\c"), 1)
 	expect(t, got, info("device.location", ""), 1)
 	ts := func(n string) string { return uk("nut_variable_timestamp_seconds", "nas", "ups", "variable", n) }
@@ -306,7 +309,7 @@ func TestOverlappingScrapesOneCancelled(t *testing.T) {
 	}
 	got := parse(t, recB.Body)
 	expect(t, got, uk("nut_ups_up", "nas", "ups"), 1)
-	expect(t, got, uk("nut_variable_value", "nas", "ups", "variable", "battery.charge"), 100)
+	expect(t, got, uk("nut_battery_charge_percent", "nas", "ups"), 100)
 	expect(t, got, uk("nut_ups_logins", "nas", "ups"), 2)
 	for _, qn := range []string{"vars", "logins", "clients", "commands", "rw"} {
 		expect(t, got, uk("nut_query_success", "nas", "ups", "query", qn), 1)

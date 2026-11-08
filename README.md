@@ -27,7 +27,8 @@ Every UPS-scoped series has `server` (configured name, or the address with `-nut
 
 | Metric | Content |
 |---|---|
-| `nut_variable_value{variable}` | numeric variables, NUT units |
+| `nut_<name>[_<unit>]` | numeric variables named in the NUT catalogue (`docs/nut-names.txt`): `nut_battery_charge_percent`, `nut_battery_runtime_seconds`, `nut_input_voltage_volts{phase}`, `nut_ambient_temperature_celsius{ambient}`, `nut_outlet_current_amperes{outlet}`; value in NUT units, never converted |
+| `nut_variable_value{variable}` | numeric variables outside the catalogue (`experimental.*`, vendor names) |
 | `nut_variable_info{variable,value}` | text variables, value verbatim (`0002`, trailing spaces) |
 | `nut_variable_timestamp_seconds{variable}` | `*.date` variables in `YYYY-MM-DD` or `YYYY/MM/DD` |
 | `nut_ups_status{flag}` | `ups.status` flags, 0 or 1, only when `ups.status` was read |
@@ -39,7 +40,11 @@ Every UPS-scoped series has `server` (configured name, or the address with `-nut
 
 A variable is a gauge when its name is not a documented opaque field (serials, IDs, dates,
 firmware, versions, statuses...) and its value is a NUT number; otherwise it is text. Override
-with `classify.numeric` / `classify.text`.
+with `classify.numeric` / `classify.text`. A gauge takes its catalogue name when NUT documents
+it, `nut_variable_value` otherwise; each value is exported once. `/inventory` gives the metric of
+every variable (`metric`). The unit suffix is the one NUT states; where NUT states none
+(`battery.voltage.low`) there is no suffix. Three-phase values carry `phase` (`L1`, `L1-N`...),
+the aggregate one `phase=""`: filter on `phase` before summing.
 
 Examples:
 
@@ -47,7 +52,7 @@ Examples:
 nut_ups_status{flag="OB"} == 1                          # on battery
 nut_ups_logins == 0                                     # no upsmon watches the UPS
 time() - nut_variable_timestamp_seconds{variable="battery.mfr.date"} > 3 * 365 * 86400
-nut_variable_value{variable="battery.charge"} * on(server, ups) group_left(value)
+nut_battery_charge_percent * on(server, ups) group_left(value)
   nut_variable_info{variable="device.model"}
 ```
 

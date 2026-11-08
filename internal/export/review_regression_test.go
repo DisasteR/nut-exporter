@@ -49,9 +49,9 @@ func TestDuplicateNamesDoNotBreakMetrics(t *testing.T) {
 		t.Fatalf("status %d: %.300s", rec.Code, rec.Body.String())
 	}
 	got := parse(t, rec.Body)
-	expect(t, got, uk("nut_variable_value", "nas", "b", "variable", "battery.charge"), 100)
-	expect(t, got, uk("nut_variable_value", "nas", "a", "variable", "battery.charge"), 50) // last wins
-	expect(t, got, uk("nut_suppressed", "nas", "a", "family", "nut_variable_value", "reason", "duplicate"), 1)
+	expect(t, got, uk("nut_battery_charge_percent", "nas", "b"), 100)
+	expect(t, got, uk("nut_battery_charge_percent", "nas", "a"), 50) // last wins
+	expect(t, got, uk("nut_suppressed", "nas", "a", "family", "nut_battery_charge_percent", "reason", "duplicate"), 1)
 	expect(t, got, uk("nut_variable_writable", "nas", "a", "variable", "battery.charge"), 1)
 }
 

@@ -149,3 +149,19 @@ func TestTimestamp(t *testing.T) {
 		}
 	}
 }
+
+// Catches: names the NUT catalogue marks opaque turned into gauges when their value is digits.
+func TestCatalogueOpaqueIsText(t *testing.T) {
+	c, err := New(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"input.quality", "ambient.1.address", "battery.charge.approx", "outlet.group.2.color"} {
+		if k, _, _ := c.Classify(name, "12"); k != Text {
+			t.Errorf("%s=12 classified as gauge", name)
+		}
+	}
+	if k, _, _ := c.Classify("battery.charge", "12"); k != Gauge {
+		t.Error("battery.charge=12 not a gauge")
+	}
+}
