@@ -1,0 +1,119 @@
+# Copyright 2026 Benjamin Saiz
+# SPDX-License-Identifier: Apache-2.0
+
+# Tests on every push and pull request; the image is built for every run and published to
+# ghcr.io only for a version tag (vX.Y.Z). Actions are pinned by commit SHA (Dependabot bumps them).
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NUT_REF: 1c4ab78c615a7b2b8231bdb023d553abd64b541d     # docs/nut-names.txt of catalog_gen.go
+  NUT_NAMES_SHA256: 2f1bd601ecdd6710cc8d9feb11a80a1b623cc755d015a71a1da278b28c89b735
+  NUT_DDL_REF: 8b936185d4340b59bee09f4600780661d1e89c69 # device dump corpus
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test -race ./...
+      - name: Catalogue regenerates identically
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/nut-names.txt" \
+            "https://raw.githubusercontent.com/networkupstools/nut/$NUT_REF/docs/nut-names.txt"
+          echo "$NUT_NAMES_SHA256  $RUNNER_TEMP/nut-names.txt" | sha256sum -c -
+          go run ./internal/catalog/gen -src "$RUNNER_TEMP/nut-names.txt" -ref "${NUT_REF:0:7}" \
+            -out internal/catalog/catalog_gen.go
+          git diff --exit-code internal/catalog/catalog_gen.go
+      - name: NUT device dump corpus
+        run: |
+          git init -q "$RUNNER_TEMP/nut-ddl"
+          git -C "$RUNNER_TEMP/nut-ddl" fetch -q --depth 1 https://github.com/networkupstools/nut-ddl "$NUT_DDL_REF"
+          git -C "$RUNNER_TEMP/nut-ddl" checkout -q FETCH_HEAD
+          NUT_DDL="$RUNNER_TEMP/nut-ddl" NUT_DDL_OUT="$RUNNER_TEMP/ddl.jsonl" \
+            go test ./internal/export -run TestDDLCorpus -count=1
+
+  image:
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write       # push to ghcr.io (tags only)
+    env:
+      IMAGE: ghcr.io/disaster/nut-exporter   # lower case: registries reject the owner's capitals
+      PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+      - name: Version
+        id: version
+        run: |
+          if [ "$PUBLISH" = true ]; then v="${GITHUB_REF_NAME#v}"; else v="0.0.0-${GITHUB_SHA::12}"; fi
+          echo "value=$v" >> "$GITHUB_OUTPUT"
+      - name: Build for the smoke test (amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: nut-exporter:smoke
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        # Catches an image that does not serve on its published port.
+        run: |
+          docker run -d --name smoke -p 127.0.0.1:9199:9199 nut-exporter:smoke -nut.server=127.0.0.1:1
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:9199/metrics -o metrics.txt && break; sleep 0.5; done
+          grep -q '^nut_server_up{server="127.0.0.1:1"} 0$' metrics.txt
+          grep -q "^nut_exporter_build_info{.*version=\"${{ steps.version.outputs.value }}\"" metrics.txt
+          docker run --rm --entrypoint /nut-exporter nut-exporter:smoke -version
+          test "$(docker inspect -f '{{.Config.User}}' nut-exporter:smoke)" = nonroot:nonroot
+          docker rm -f smoke
+      - if: env.PUBLISH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (amd64, arm64), push on a version tag
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

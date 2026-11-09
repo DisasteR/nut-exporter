@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Base images pinned by digest; bump both tag and digest together.
-FROM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS build
+# The build stage runs on the builder platform and cross-compiles (no emulation).
+FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-ARG VERSION=dev
+ARG VERSION=dev TARGETOS TARGETARCH
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /nut-exporter ./cmd/nut-exporter
 # Licence and notice files of everything compiled in: this project, the Go standard library and
 # each module (scripts/collect-licenses.sh fails on a module without one).

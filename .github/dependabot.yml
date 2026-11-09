@@ -1,0 +1,22 @@
+# Copyright 2026 Benjamin Saiz
+# SPDX-License-Identifier: Apache-2.0
+
+# Weekly update pull requests; minor and patch bumps grouped per ecosystem. Security updates are
+# separate (repository setting "Dependabot security updates").
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      gomod: { update-types: [minor, patch] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions: { update-types: [minor, patch] }
+  - package-ecosystem: docker      # base image tags and digests of the Dockerfile
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      docker: { update-types: [minor, patch] }

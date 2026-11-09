@@ -368,7 +368,7 @@ a successful `LIST UPS`/`LIST VAR`/`LIST CMD`. Churn state is in memory; a resta
 Zero configuration: `--nut.server=127.0.0.1:3493` (server name = the address). Optional YAML:
 
 ```yaml
-listen: 127.0.0.1:9199
+listen: ":9199"                # all interfaces; /inventory holds serials
 servers:                       # names must be unique and non-empty: checked at startup
   - name: nas
     address: 127.0.0.1:3493
@@ -445,13 +445,18 @@ delays and errors. Each test states which wrong implementation it catches.
 - Request recorder fails the test on any command outside §3's list.
 - Mutation checks that must fail the suite: numeric guessing on opaque names, no unescaping,
   aborting all UPSes on one error, zeros for unread status, metadata on the scrape path.
-- `go test -race`. CI integration against real upsd with `dummy-ups`: Debian 11 (NUT 2.7.4) and a
-  current NUT, fixture above plus a second UPS.
+- `go test -race`, catalogue regeneration and the nut-ddl corpus at pinned commits, and an image
+  smoke test, in CI (`.github/workflows/ci.yml`). The integration bench against real upsd with
+  `dummy-ups` (Debian 11, NUT 2.7.4) is manual, not in CI.
 
 ## 10. Packaging and deployment
 
-- Multi-stage build, static binary, distroless `nonroot` runtime; base images pinned by digest;
-  image tag = release version; changelog per tag.
+- Multi-stage build, static binary cross-compiled for linux/amd64 and linux/arm64, distroless
+  `nonroot` runtime; base images and actions pinned by digest/SHA (Dependabot bumps them). Default
+  listener `:9199`, the port nut_exporter uses (allocated to another exporter in the Prometheus
+  port list, where 9100-9999 are all taken), so scrape configurations keep working. Published
+  to `ghcr.io` only for a `vX.Y.Z` tag: image tags `X.Y.Z` and `sha-<commit>`,
+  no moving tag; changelog per tag.
 - NAS: run next to `druggeri/nut_exporter:3.3.0` on another port; port the `nas-ups-energy`
   dashboard, alert rules and the `DISCHRG` annotation to the new names; then remove nut_exporter
   and its NUT credentials. Rollback: the old service stays in the compose file until then.

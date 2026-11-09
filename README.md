@@ -17,8 +17,34 @@ nut-exporter -config nut-exporter.yml
 | `/metrics` | Prometheus metrics, collected at scrape time |
 | `/inventory` | JSON snapshot: every raw value, metadata, query state and export decision |
 
-Set the scraper timeout above `timeouts.scrape` (10 s by default). `/inventory` holds serials and
-descriptions: keep the listener private (`127.0.0.1:9199` by default).
+Set the scraper timeout above `timeouts.scrape` (10 s by default). The listener is `:9199` (all
+interfaces) by default; `/inventory` holds serials and descriptions, so restrict it with
+`listen: 127.0.0.1:9199` or a firewall where the network is not private.
+
+### Container image
+
+`ghcr.io/disaster/nut-exporter:<version>` (linux/amd64, linux/arm64), published for each release
+tag `vX.Y.Z` as `X.Y.Z` (immutable; also `sha-<commit>`), with an SBOM and build provenance; no
+`latest` or other moving tag. Distroless, runs as `nonroot` (65532), listens on `:9199`; publish
+the port on a private address only.
+
+```sh
+docker run -d --name nut-exporter -p 127.0.0.1:9199:9199 \
+  ghcr.io/disaster/nut-exporter:<version> -nut.server=192.0.2.10:3493
+```
+
+```yaml
+services:
+  nut-exporter:
+    image: ghcr.io/disaster/nut-exporter:<version>
+    command: ["-config", "/etc/nut-exporter/config.yml"]
+    volumes: ["./nut-exporter.yml:/etc/nut-exporter/config.yml:ro"]
+    ports: ["127.0.0.1:9199:9199"]
+    restart: unless-stopped
+```
+
+The configuration file must be readable by UID 65532. Licence files of everything compiled in are
+under `/licenses`.
 
 ## Metrics
 
@@ -71,7 +97,7 @@ nut_battery_charge_percent * on(server, ups) group_left(model, serial) nut_devic
 All keys are optional except `servers`; defaults shown.
 
 ```yaml
-listen: 127.0.0.1:9199
+listen: ":9199"
 servers:
   - name: nas
     address: 127.0.0.1:3493
@@ -110,6 +136,12 @@ go test -race ./...
 NUT_DDL=../nut-ddl NUT_DDL_OUT=/tmp/ddl.jsonl go test ./internal/export -run TestDDLCorpus
 docker build --build-arg VERSION=<version> -t nut-exporter:<version> .
 ```
+
+CI (`.github/workflows/ci.yml`) runs on every push and pull request: gofmt, vet, `go test -race`,
+catalogue regeneration at the pinned NUT commit (must give `catalog_gen.go` unchanged), the
+nut-ddl corpus at a pinned commit, and an image smoke test; it pushes the image only for a
+`vX.Y.Z` tag. Dependabot (`.github/dependabot.yml`) proposes weekly updates of Go modules,
+actions and base images.
 
 ## Licence
 

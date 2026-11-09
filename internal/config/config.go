@@ -77,7 +77,7 @@ type Config struct {
 // Default returns the configuration used when no file is given.
 func Default() Config {
 	return Config{
-		Listen:      "127.0.0.1:9199",
+		Listen:      ":9199",
 		UPS:         Filter{Include: []string{"*"}},
 		Variables:   Filter{Include: []string{"*"}},
 		Guard:       Guard{MaxLength: 1024, MaxDistinct: 100, ChurnWindow: 24 * time.Hour, MaxUPS: 256, MaxSeries: 20000},

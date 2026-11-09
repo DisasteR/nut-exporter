@@ -25,7 +25,8 @@ func TestLoadKeepsDefaultsForMissingKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Timeouts.Scrape != 5*time.Second || c.Timeouts.Command != 2*time.Second || c.Workers != 2 || c.Guard.MaxDistinct != 100 {
+	if c.Timeouts.Scrape != 5*time.Second || c.Timeouts.Command != 2*time.Second || c.Workers != 2 || c.Guard.MaxDistinct != 100 ||
+		c.Listen != ":9199" {
 		t.Fatalf("got %+v", c)
 	}
 }
