@@ -37,6 +37,7 @@ func run() error {
 	var (
 		file    = flag.String("config", "", "YAML configuration file (docs/design.md §7)")
 		server  = flag.String("nut.server", "", "upsd address host:port, when no configuration file is given")
+		name    = flag.String("nut.name", "", `server label of -nut.server (default "default")`)
 		listen  = flag.String("web.listen-address", "", "listen address, overrides the configuration")
 		level   = flag.String("log.level", "info", "debug, info, warn or error")
 		showVer = flag.Bool("version", false, "print the version and exit")
@@ -52,7 +53,7 @@ func run() error {
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lv}))
 
-	cfg, err := loadConfig(*file, *server)
+	cfg, err := loadConfig(*file, *server, *name)
 	if err != nil {
 		return err
 	}
@@ -107,15 +108,22 @@ func run() error {
 	return nil
 }
 
-func loadConfig(file, server string) (config.Config, error) {
+// defaultName labels the -nut.server server: a fixed name, so that a new address or a move to a
+// configuration file with `name: default` keeps the series.
+const defaultName = "default"
+
+func loadConfig(file, server, name string) (config.Config, error) {
 	switch {
-	case file != "" && server != "":
-		return config.Config{}, errors.New("-config and -nut.server are exclusive")
+	case file != "" && (server != "" || name != ""):
+		return config.Config{}, errors.New("-config excludes -nut.server and -nut.name")
 	case file != "":
 		return config.Load(file)
 	case server != "":
+		if name == "" {
+			name = defaultName
+		}
 		c := config.Default()
-		c.Servers = []config.Server{{Name: server, Address: server}}
+		c.Servers = []config.Server{{Name: name, Address: server}}
 		return c, c.Validate()
 	default:
 		return config.Config{}, errors.New("give -config or -nut.server")

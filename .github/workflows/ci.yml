@@ -92,7 +92,7 @@ jobs:
         run: |
           docker run -d --name smoke -p 127.0.0.1:9199:9199 nut-exporter:smoke -nut.server=127.0.0.1:1
           for _ in $(seq 1 20); do curl -fsS http://127.0.0.1:9199/metrics -o metrics.txt && break; sleep 0.5; done
-          grep -q '^nut_server_up{server="127.0.0.1:1"} 0$' metrics.txt
+          grep -q '^nut_server_up{server="default"} 0$' metrics.txt
           grep -q "^nut_exporter_build_info{.*version=\"${{ steps.version.outputs.value }}\"" metrics.txt
           docker run --rm --entrypoint /nut-exporter nut-exporter:smoke -version
           test "$(docker inspect -f '{{.Config.User}}' nut-exporter:smoke)" = nonroot:nonroot

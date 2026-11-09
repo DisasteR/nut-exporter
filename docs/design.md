@@ -365,7 +365,9 @@ a successful `LIST UPS`/`LIST VAR`/`LIST CMD`. Churn state is in memory; a resta
 
 ## 7. Configuration
 
-Zero configuration: `--nut.server=127.0.0.1:3493` (server name = the address). Optional YAML:
+Zero configuration: `-nut.server=127.0.0.1:3493`, server name `-nut.name` or `default` (not the
+address: a new address or a move to a configuration file with the same `name` keeps the
+series). Optional YAML:
 
 ```yaml
 listen: ":9199"                # all interfaces; /inventory holds serials

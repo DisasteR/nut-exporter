@@ -8,7 +8,8 @@ sends no SET, INSTCMD or LOGIN and needs no NUT credentials. Design: `docs/desig
 ## Run
 
 ```sh
-nut-exporter -nut.server 127.0.0.1:3493
+nut-exporter -nut.server 127.0.0.1:3493                  # server label "default"
+nut-exporter -nut.server 127.0.0.1:3493 -nut.name nas    # server label "nas"
 nut-exporter -config nut-exporter.yml
 ```
 
@@ -48,8 +49,9 @@ under `/licenses`.
 
 ## Metrics
 
-Every UPS-scoped series has `server` (configured name, or the address with `-nut.server`) and
-`ups` labels.
+Every UPS-scoped series has `server` (configured name; with `-nut.server`, `-nut.name` or
+`default`, never the address, so that a new address or a move to a configuration file with the
+same `name` keeps the series) and `ups` labels.
 
 | Metric | Content |
 |---|---|
