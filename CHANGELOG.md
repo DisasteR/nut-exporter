@@ -4,7 +4,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 [Semantic Versioning](https://semver.org/). Before 1.0.0, a minor version may change metric
 names or configuration.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-09
 
 ### Changed
 
@@ -46,5 +46,5 @@ First release.
 - Validated against the NUT device dump library (725 dumps) and upsd 2.7.4; not yet run in
   production.
 
-[Unreleased]: https://github.com/DisasteR/nut-exporter/compare/v0.1.0...HEAD
+[0.2.0]: https://github.com/DisasteR/nut-exporter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/DisasteR/nut-exporter/releases/tag/v0.1.0
