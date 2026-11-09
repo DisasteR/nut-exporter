@@ -41,7 +41,7 @@
       }
     ]
   },
-  "description": "NUT UPSes through nut-exporter (nut_* metrics); pick the data source, the NUT server and the UPS. Needs a VictoriaMetrics data source: some panels use MetricsQL functions (share_eq_over_time, increases_over_time). Power = ups.load % of capacity x nominal power (ups.realpower.nominal when NUT gives it, else $maxwatt), an estimate. Energy = mean power x duration: holes in the collection do not lower it.",
+  "description": "NUT UPSes through nut-exporter (nut_* metrics); pick the data source, the NUT server and the UPS. PromQL only: Prometheus or VictoriaMetrics. Power = ups.load % of capacity x nominal power (ups.realpower.nominal when NUT gives it, else $maxwatt), an estimate. Energy = mean power x duration: holes in the collection do not lower it.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -1024,13 +1024,13 @@
       },
       "targets": [
         {
-          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range], 1)) * $__range_s",
+          "expr": "max(avg_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) * $__range_s",
           "instant": true,
           "legendFormat": "Durée",
           "refId": "A"
         },
         {
-          "expr": "max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]))",
+          "expr": "max(((changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) - (last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) % 2) / 2))",
           "instant": true,
           "legendFormat": "Coupures",
           "refId": "B"
@@ -1296,8 +1296,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 0,
+        "w": 3,
+        "x": 6,
         "y": 24
       },
       "hideTimeOverride": true,
@@ -1358,8 +1358,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 9,
         "y": 24
       },
       "hideTimeOverride": true,
@@ -1420,8 +1420,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 3,
+        "x": 12,
         "y": 24
       },
       "hideTimeOverride": true,
@@ -1482,8 +1482,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
+        "w": 3,
+        "x": 15,
         "y": 24
       },
       "hideTimeOverride": true,
@@ -1548,8 +1548,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 3,
+        "x": 18,
         "y": 24
       },
       "id": 15,
@@ -1595,8 +1595,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
+        "w": 3,
+        "x": 21,
         "y": 24
       },
       "id": 16,
@@ -2067,25 +2067,25 @@
       },
       "targets": [
         {
-          "expr": "max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]))",
+          "expr": "max(((changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) - (last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) % 2) / 2))",
           "instant": true,
           "legendFormat": "Passages",
           "refId": "A"
         },
         {
-          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range], 1)) * $__range_s",
+          "expr": "max(avg_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) * $__range_s",
           "instant": true,
           "legendFormat": "Temps total",
           "refId": "B"
         },
         {
-          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range], 1)) * $__range_s / clamp_min(max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])), 1)",
+          "expr": "max(avg_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) * $__range_s / clamp_min(max(((changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) - (last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) % 2) / 2)), 1)",
           "instant": true,
           "legendFormat": "Durée moyenne",
           "refId": "C"
         },
         {
-          "expr": "clamp_min(max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}[$__range])) - max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])), 0)",
+          "expr": "clamp_min(max(((changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}[$__range]) + last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}[$__range]) - (last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}[$__range]) + changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}[$__range])) % 2) / 2)) - max(((changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) - (last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]) + changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])) % 2) / 2)), 0)",
           "instant": true,
           "legendFormat": "Tests",
           "refId": "D"
@@ -2152,12 +2152,12 @@
       },
       "targets": [
         {
-          "expr": "max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d]))",
+          "expr": "max(((changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d]) + last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d]) - (last_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d]) + changes(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d])) % 2) / 2))",
           "legendFormat": "Passages",
           "refId": "A"
         },
         {
-          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d], 1)) * 1440",
+          "expr": "max(avg_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d])) * 1440",
           "legendFormat": "Minutes sur batterie",
           "refId": "B"
         }
@@ -2165,6 +2165,132 @@
       "timeFrom": "30d",
       "title": "Basculements par jour (jours UTC, 30 jours)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Année civile précédente : puissance moyenne mesurée x durée de l'année. Tant que l'historique ne couvre pas toute l'année, c'est une extrapolation.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 24
+      },
+      "hideTimeOverride": true,
+      "id": 35,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "now/y",
+      "title": "Année dernière",
+      "type": "stat",
+      "timeShift": "1y/y"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Mois civil précédent : puissance moyenne mesurée x durée du mois. Tant que l'historique ne couvre pas tout le mois, c'est une extrapolation.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 24
+      },
+      "hideTimeOverride": true,
+      "id": 36,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "now/M",
+      "title": "Mois dernier",
+      "type": "stat",
+      "timeShift": "1M/M"
     }
   ],
   "refresh": "1m",
@@ -2178,7 +2304,7 @@
     "list": [
       {
         "current": {},
-        "label": "Source VictoriaMetrics",
+        "label": "Source de données",
         "name": "datasource",
         "options": [],
         "query": "prometheus",

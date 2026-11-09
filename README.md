@@ -139,8 +139,10 @@ battery and the battery tests they reveal.
 
 ![Dashboard](examples/grafana/nut-ups.png)
 
-- It needs a VictoriaMetrics data source: some panels use MetricsQL (`share_eq_over_time`,
-  `increases_over_time`).
+- Its queries are plain PromQL: any Prometheus-compatible data source. Transfers and tests are
+  counted with `changes()`, which VictoriaMetrics also applies to the sample before the period:
+  a transfer within one scrape interval of the start of the period counts there, not on
+  Prometheus.
 - Power is an estimate: `ups.load` x `ups.realpower.nominal`, or the `maxwatt` variable when NUT
   gives no nominal power. Energy and cost multiply the mean power by the period: on a period
   longer than the collected history, they extrapolate.
