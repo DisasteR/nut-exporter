@@ -89,6 +89,19 @@ Some drivers publish diagnostics under `ups.debug.*` (raw protocol frames); when
 needed, `variables: { exclude: ["ups.debug.*"] }` drops them. Text values that keep changing
 are otherwise cut by the churn guard and counted in `nut_suppressed{reason="churn"}`.
 
+`ups`, `variables` and `classify` apply to all servers and UPSes. To drop a series of one UPS
+only (a driver reporting kelvins as `ups.temperature`), relabel in Prometheus; the raw value
+stays in `/inventory`:
+
+```yaml
+metric_relabel_configs:
+  - source_labels: [__name__, server, ups]
+    regex: nut_ups_temperature_celsius;nas;old-ups
+    action: drop
+```
+
+Generic families also carry `variable` (`nut_variable_info`, `nut_variable_value`).
+
 ## Build and test
 
 ```sh

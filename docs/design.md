@@ -385,6 +385,16 @@ workers: 2
 Wildcards are shell-style on the dotted name. Servers come only from configuration. `/inventory`
 is served on the same listener as `/metrics` and contains serials and descriptions.
 
+Scope: `ups`, `variables` and `classify` apply to every server and UPS; `ups` matches the UPS
+name only. Classification is already per value and per scrape, so a variable numeric on one UPS
+and text on another needs no setting; in nut-ddl the remaining cross-device differences are
+driver defects that no per-UPS rule fixes better. Dropping a series of one UPS is a Prometheus
+`metric_relabel_configs` rule on `server`, `ups` (and `variable` for generic families); the raw
+value stays in `/inventory`. Per-UPS scope is reopened when a real UPS needs a variable classified
+differently from the others and dropping it is not enough (e.g. digits numeric on one device,
+an identifier on another); an optional `overrides` list (servers, ups, variables, classify)
+would add it without changing existing configurations.
+
 ## 8. Failure semantics
 
 | Situation | Exported for that UPS/server |
