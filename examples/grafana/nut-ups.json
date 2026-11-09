@@ -1,0 +1,2255 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "enable": true,
+        "expr": "max(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}) == 1",
+        "iconColor": "red",
+        "name": "Sur batterie",
+        "step": "15s",
+        "titleFormat": "Sur batterie",
+        "useValueForTime": false
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "enable": true,
+        "expr": "(max(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}) == 1) unless on() (max(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}) == 1)",
+        "iconColor": "purple",
+        "name": "Test batterie",
+        "step": "15s",
+        "titleFormat": "Test batterie (décharge sur secteur)",
+        "useValueForTime": false
+      }
+    ]
+  },
+  "description": "NUT UPSes through nut-exporter (nut_* metrics); pick the data source, the NUT server and the UPS. Needs a VictoriaMetrics data source: some panels use MetricsQL functions (share_eq_over_time, increases_over_time). Power = ups.load % of capacity x nominal power (ups.realpower.nominal when NUT gives it, else $maxwatt), an estimate. Energy = mean power x duration: holes in the collection do not lower it.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 33,
+      "panels": [],
+      "title": "Onduleurs visibles",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Tous les onduleurs de la source de données, quels que soient les sélecteurs Serveur NUT et Onduleur. Alimentation : d'après les statuts OL et OB ; ni l'un ni l'autre pendant un redémarrage du pilote (WAIT) ou onduleur éteint (OFF).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Collecté"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "red",
+                        "text": "non"
+                      },
+                      "1": {
+                        "color": "green",
+                        "text": "oui"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Alimentation"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "ni secteur ni batterie",
+                        "color": "orange"
+                      },
+                      "1": {
+                        "text": "secteur",
+                        "color": "green"
+                      },
+                      "2": {
+                        "text": "batterie",
+                        "color": "red"
+                      },
+                      "3": {
+                        "text": "secteur et batterie",
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Charge batterie"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Charge"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Autonomie"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "upsmon connectés"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red"
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 34,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups, model, serial) (nut_device_info)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups) (nut_ups_up)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups) (nut_battery_charge_percent)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups) (nut_battery_runtime_seconds)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups) (nut_ups_load_percent)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups) (nut_ups_status{flag=\"OB\"}) * 2 + max by (server, ups) (nut_ups_status{flag=\"OL\"})",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups) (nut_ups_logins)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (server, ups, value) (nut_variable_info{variable=\"battery.mfr.date\"})",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "H"
+        }
+      ],
+      "title": "Onduleurs visibles",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value #A": true,
+              "Value #H": true
+            },
+            "indexByName": {
+              "Value #B": 4,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8,
+              "Value #F": 5,
+              "Value #G": 9,
+              "model": 2,
+              "serial": 3,
+              "server": 0,
+              "ups": 1,
+              "value": 10
+            },
+            "renameByName": {
+              "Value #B": "Collecté",
+              "Value #C": "Charge batterie",
+              "Value #D": "Autonomie",
+              "Value #E": "Charge",
+              "Value #F": "Alimentation",
+              "Value #G": "upsmon connectés",
+              "model": "Modèle",
+              "serial": "N° de série",
+              "server": "Serveur",
+              "ups": "Onduleur",
+              "value": "Date des batteries"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 22,
+      "panels": [],
+      "title": "Onduleur $ups sur $server",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Fabricant et modèle annoncés par l'onduleur (NUT device.mfr, device.model).",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 7
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "max by (mfr, model) (nut_device_info{server=\"$server\", ups=\"$ups\"})",
+          "instant": true,
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Modèle",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 4,
+        "y": 7
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "max by (mfr) (nut_device_info{server=\"$server\", ups=\"$ups\"})",
+          "instant": true,
+          "legendFormat": "{{mfr}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Fabricant",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 8,
+        "y": 7
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "max by (serial) (nut_device_info{server=\"$server\", ups=\"$ups\"})",
+          "instant": true,
+          "legendFormat": "{{serial}}",
+          "refId": "A"
+        }
+      ],
+      "title": "N° de série",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "NUT ups.firmware.",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 12,
+        "y": 7
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (value) (nut_variable_info{server=\"$server\", ups=\"$ups\", variable=\"ups.firmware\"})",
+          "instant": true,
+          "legendFormat": "{{value}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Firmware",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "NUT ups.realpower.nominal ; à défaut, la variable du dashboard.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 16,
+        "y": 7
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Puissance nominale",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "NUT battery.mfr.date. NUT la définit comme la date de fabrication ; sur certains onduleurs (APC), c'est la seule date que NUT peut écrire : elle porte alors la date d'installation.",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 20,
+        "y": 7
+      },
+      "id": 28,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (value) (nut_variable_info{server=\"$server\", ups=\"$ups\", variable=\"battery.mfr.date\"})",
+          "instant": true,
+          "legendFormat": "{{value}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Date des batteries",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 1,
+      "panels": [],
+      "title": "État",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Seuils réglés dans l'onduleur (battery.charge.low, battery.runtime.low) : en dessous, il se déclare en batterie faible (LB) et upsmon arrête les machines qu'il protège.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OL"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Secteur (OL)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OB"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sur batterie (OB)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "LB"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Batterie faible (LB)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CHRG"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "En charge"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RB"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Batterie à remplacer (RB)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 11
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "name"
+      },
+      "targets": [
+        {
+          "expr": "max by (flag) (nut_ups_status{server=\"$server\", ups=\"$ups\"}) == 1",
+          "instant": true,
+          "legendFormat": "{{flag}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Statut",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation : charge de l'onduleur (ups.load, % de sa capacité) x puissance nominale (ups.realpower.nominal). Un onduleur qui donne une charge entière, comme l'APC Back-UPS RS 1500G, fait avancer la puissance par paliers de 1 % de la puissance nominale.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 700
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 11
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Puissance",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 11
+      },
+      "id": 4,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Charge onduleur",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 11
+      },
+      "id": 5,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_battery_charge_percent{server=\"$server\", ups=\"$ups\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Charge batterie",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "orange",
+                "value": 600
+              },
+              {
+                "color": "green",
+                "value": 1200
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 11
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_battery_runtime_seconds{server=\"$server\", ups=\"$ups\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Autonomie",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Temps passé sur batterie et nombre de passages sur batterie (coupures, micro-coupures, tests) sur la période du dashboard.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coupures"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 11
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range], 1)) * $__range_s",
+          "instant": true,
+          "legendFormat": "Durée",
+          "refId": "A"
+        },
+        {
+          "expr": "max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "Coupures",
+          "refId": "B"
+        }
+      ],
+      "title": "Sur batterie sur la période",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation de ce qui est branché sur les prises secourues : charge (% de la puissance nominale) x puissance nominale.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "watt"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Charge (%)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100",
+          "legendFormat": "Onduleur (W)",
+          "refId": "A"
+        },
+        {
+          "expr": "max(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Charge (%)",
+          "refId": "C"
+        }
+      ],
+      "title": "Puissance et charge",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Autonomie"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^Seuil.*"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seuil avertissement charge"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seuil autonomie"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_battery_charge_percent{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Charge (%)",
+          "refId": "A"
+        },
+        {
+          "expr": "max(nut_battery_runtime_seconds{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Autonomie",
+          "refId": "B"
+        },
+        {
+          "expr": "max(nut_battery_charge_warning_percent{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Seuil avertissement charge",
+          "refId": "C"
+        },
+        {
+          "expr": "max(nut_battery_charge_low_percent{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Seuil batterie faible",
+          "refId": "D"
+        },
+        {
+          "expr": "max(nut_battery_runtime_low_seconds{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Seuil autonomie",
+          "refId": "E"
+        }
+      ],
+      "title": "Batterie : charge et autonomie",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 10,
+      "panels": [],
+      "title": "Consommation et coût",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation : puissance moyenne mesurée x durée de la période. Les trous de collecte ne la font pas baisser ; tant que l'historique ne couvre pas toute la période, c'est une extrapolation.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 24
+      },
+      "hideTimeOverride": true,
+      "id": 11,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "now/d",
+      "title": "Aujourd'hui",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation : puissance moyenne mesurée x durée de la période. Les trous de collecte ne la font pas baisser ; tant que l'historique ne couvre pas toute la période, c'est une extrapolation.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 24
+      },
+      "hideTimeOverride": true,
+      "id": 12,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "now/w",
+      "title": "Cette semaine",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation : puissance moyenne mesurée x durée de la période. Les trous de collecte ne la font pas baisser ; tant que l'historique ne couvre pas toute la période, c'est une extrapolation.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 24
+      },
+      "hideTimeOverride": true,
+      "id": 13,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "now/M",
+      "title": "Ce mois",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation : puissance moyenne mesurée x durée de la période. Les trous de collecte ne la font pas baisser ; tant que l'historique ne couvre pas toute l'année, c'est une extrapolation.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 24
+      },
+      "hideTimeOverride": true,
+      "id": 14,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * $__range_s / 3600 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "now/y",
+      "title": "Cette année",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Puissance moyenne sur la période du dashboard x 8766 h. Choisir une période longue (30 jours) pour une projection stable.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 24
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * 8766 / 1000",
+          "instant": true,
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * 8766 / 1000 * $kwhprice",
+          "instant": true,
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "title": "Projection sur un an",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Estimation : moyenne de la charge sur les mesures disponibles de la période x puissance nominale.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 24
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[$__range])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100",
+          "instant": true,
+          "legendFormat": "Onduleur",
+          "refId": "A"
+        }
+      ],
+      "title": "Puissance moyenne sur la période",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Une barre par jour UTC terminé (de 1 h ou 2 h à 1 h ou 2 h, heure de Paris) : la journée en cours apparaît le lendemain. Pour la journée en cours, voir Aujourd'hui.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "barAlignment": -1,
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          },
+          "decimals": 2,
+          "unit": "kwatth"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coût"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 17,
+      "interval": "1d",
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[1d])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * 24 / 1000",
+          "interval": "1d",
+          "legendFormat": "kWh",
+          "refId": "A"
+        },
+        {
+          "expr": "max(avg_over_time(nut_ups_load_percent{server=\"$server\", ups=\"$ups\"}[1d])) * scalar(max(nut_ups_realpower_nominal_watts{server=\"$server\", ups=\"$ups\"}) or vector($maxwatt)) / 100 * 24 / 1000 * $kwhprice",
+          "interval": "1d",
+          "legendFormat": "Coût",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "30d",
+      "title": "Consommation et coût par jour terminé (jours UTC)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "id": 18,
+      "panels": [],
+      "title": "Réseau électrique et batterie",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "volt"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^Seuil.*"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_input_voltage_volts{server=\"$server\", ups=\"$ups\", phase=\"\"})",
+          "legendFormat": "Entrée",
+          "refId": "A"
+        },
+        {
+          "expr": "max(nut_input_voltage_nominal_volts{server=\"$server\", ups=\"$ups\", phase=\"\"})",
+          "legendFormat": "Nominale",
+          "refId": "B"
+        },
+        {
+          "expr": "max(nut_input_transfer_low_volts{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Seuil bas de basculement",
+          "refId": "C"
+        },
+        {
+          "expr": "max(nut_input_transfer_high_volts{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Seuil haut de basculement",
+          "refId": "D"
+        }
+      ],
+      "title": "Tension secteur",
+      "type": "timeseries",
+      "description": "Hors des seuils de basculement (réglés dans l'onduleur), il passe sur batterie."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Une tension en charge complète qui baisse au fil des mois signale une batterie qui vieillit.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "volt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(nut_battery_voltage_volts{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Batterie",
+          "refId": "A"
+        },
+        {
+          "expr": "max(nut_battery_voltage_nominal_volts{server=\"$server\", ups=\"$ups\"})",
+          "legendFormat": "Nominale",
+          "refId": "B"
+        }
+      ],
+      "title": "Tension batterie",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 45
+      },
+      "id": 29,
+      "panels": [],
+      "title": "Basculements sur batterie",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Sur batterie : coupure ou tension hors seuils. Décharge sans « sur batterie » : test de batterie. Relevé à chaque collecte : un basculement plus court peut passer inaperçu, le journal de upsmon (nut-monitor) fait foi.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "transparent",
+                  "text": "non"
+                },
+                "1": {
+                  "text": "oui"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent"
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OB"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sur batterie"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "LB"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Batterie faible"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "DISCHRG"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Décharge"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent"
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CHRG"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Recharge"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent"
+                    },
+                    {
+                      "color": "blue",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "id": 30,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "showValue": "never",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max by (flag) (nut_ups_status{server=\"$server\", ups=\"$ups\", flag=~\"OB|DISCHRG|LB|CHRG\"})",
+          "legendFormat": "{{flag}}",
+          "refId": "A"
+        }
+      ],
+      "title": "État de l'onduleur",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Passages sur batterie, temps total et durée moyenne d'un passage. Tests : décharges sans passage sur batterie. Relevé à chaque collecte.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(Passages|Tests)$"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 52
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "Passages",
+          "refId": "A"
+        },
+        {
+          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range], 1)) * $__range_s",
+          "instant": true,
+          "legendFormat": "Temps total",
+          "refId": "B"
+        },
+        {
+          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range], 1)) * $__range_s / clamp_min(max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])), 1)",
+          "instant": true,
+          "legendFormat": "Durée moyenne",
+          "refId": "C"
+        },
+        {
+          "expr": "clamp_min(max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"DISCHRG\"}[$__range])) - max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[$__range])), 0)",
+          "instant": true,
+          "legendFormat": "Tests",
+          "refId": "D"
+        }
+      ],
+      "title": "Basculements sur la période",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Nombre de passages sur batterie et minutes passées sur batterie, par jour.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "barAlignment": -1,
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Minutes sur batterie"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 16,
+        "x": 8,
+        "y": 52
+      },
+      "id": 32,
+      "interval": "1d",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(increases_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d]))",
+          "legendFormat": "Passages",
+          "refId": "A"
+        },
+        {
+          "expr": "max(share_eq_over_time(nut_ups_status{server=\"$server\", ups=\"$ups\", flag=\"OB\"}[1d], 1)) * 1440",
+          "legendFormat": "Minutes sur batterie",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": "30d",
+      "title": "Basculements par jour (jours UTC, 30 jours)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 42,
+  "tags": [
+    "nut",
+    "ups",
+    "nut-exporter"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "label": "Source VictoriaMetrics",
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(nut_server_up, server)",
+        "label": "Serveur NUT",
+        "name": "server",
+        "options": [],
+        "query": {
+          "query": "label_values(nut_server_up, server)",
+          "refId": "server"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(nut_ups_up{server=\"$server\"}, ups)",
+        "label": "Onduleur",
+        "name": "ups",
+        "options": [],
+        "query": {
+          "query": "label_values(nut_ups_up{server=\"$server\"}, ups)",
+          "refId": "ups"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0.1888",
+          "value": "0.1888"
+        },
+        "label": "Prix du kWh (€)",
+        "name": "kwhprice",
+        "query": "0.1888",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "865",
+          "value": "865"
+        },
+        "label": "Puissance nominale (W) si NUT ne la donne pas",
+        "name": "maxwatt",
+        "query": "865",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "NUT - UPS et énergie",
+  "uid": "nut-exporter-ups",
+  "weekStart": ""
+}

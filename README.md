@@ -130,6 +130,24 @@ metric_relabel_configs:
 
 Generic families also carry `variable` (`nut_variable_info`, `nut_variable_value`).
 
+## Grafana dashboard
+
+`examples/grafana/nut-ups.json` (French labels), for Grafana 13: import it, then pick the data
+source, the NUT server and the UPS. A table lists every UPS of the data source; the other panels
+show the selected one: identity, status, power, battery, mains and battery voltages, transfers to
+battery and the battery tests they reveal.
+
+![Dashboard](examples/grafana/nut-ups.png)
+
+- It needs a VictoriaMetrics data source: some panels use MetricsQL (`share_eq_over_time`,
+  `increases_over_time`).
+- Power is an estimate: `ups.load` x `ups.realpower.nominal`, or the `maxwatt` variable when NUT
+  gives no nominal power. Energy and cost multiply the mean power by the period: on a period
+  longer than the collected history, they extrapolate.
+- `kwhprice` is the price of a kWh, in euros.
+- Tests are counted as discharges (`DISCHRG`) minus transfers to battery (`OB`) over the period:
+  a discharge that began before the period can offset a test.
+
 ## Build and test
 
 ```sh
