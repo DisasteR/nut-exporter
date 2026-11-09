@@ -99,7 +99,8 @@ func wordValued(desc, example string) bool {
 var reserved = map[string]bool{
 	"nut_server_up": true, "nut_server_info": true, "nut_server_query_success": true,
 	"nut_server_suppressed": true, "nut_collect_duration_seconds": true, "nut_ups_info": true,
-	"nut_ups_up": true, "nut_query_success": true, "nut_query_error_info": true,
+	"nut_device_info": true,
+	"nut_ups_up":      true, "nut_query_success": true, "nut_query_error_info": true,
 	"nut_metadata_age_seconds": true, "nut_metadata_errors": true, "nut_metadata_pending": true,
 	"nut_suppressed": true, "nut_ups_logins": true, "nut_ups_status": true,
 	"nut_ups_client_sessions": true, "nut_ups_command_info": true, "nut_exporter_build_info": true,

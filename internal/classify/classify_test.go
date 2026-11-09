@@ -186,3 +186,31 @@ func TestPadding(t *testing.T) {
 		t.Errorf("forced padded: (%v,%v,%v)", k, v, e)
 	}
 }
+
+// Catches: the wider forced syntax leaking to unforced names, or accepting what is not a finite
+// decimal number (hexadecimal USB IDs, Inf/NaN, overflow) when forced.
+func TestForcedSyntax(t *testing.T) {
+	c, err := New([]string{"experimental.n", "ups.vendorid"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok := map[string]float64{".5": 0.5, "120.": 120, "1.2e4": 12000, " 1.5E-3 ": 0.0015, "+27.3": 27.3,
+		"-.25": -0.25, "2e66": 2e66, "01200.2": 1200.2, "0e-999": 0, "-0.0e5": 0, "1e-320": 1e-320}
+	for value, want := range ok {
+		if k, v, e := c.Classify("experimental.n", value); k != Gauge || v != want || e {
+			t.Errorf("forced %q: (%v,%v,%v), want gauge %v", value, k, v, e, want)
+		}
+		if k, _, e := c.Classify("experimental.m", value); value != "01200.2" && (k != Text || e) {
+			t.Errorf("unforced %q: (%v,%v), want text", value, k, e)
+		}
+	}
+	for _, value := range []string{"Inf", "+Inf", "NaN", "infinity", "1e999", "-1e999", "1e-999", "-0.5e-400", "0x1F", "0x1p3", "051d",
+		"1e", "e5", ".", "+", "1.2.3", "1_000", "1,5", "1 2", "\t1", ""} {
+		if k, v, e := c.Classify("experimental.n", value); k != Text || v != 0 || !e {
+			t.Errorf("forced %q: (%v,%v,%v), want text with parse error", value, k, v, e)
+		}
+	}
+	if k, _, e := c.Classify("ups.vendorid", "051d"); k != Text || !e {
+		t.Errorf("forced hexadecimal ID: (%v,%v), want text with parse error", k, e)
+	}
+}

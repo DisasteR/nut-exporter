@@ -48,6 +48,8 @@ func TestGoldenAPC(t *testing.T) {
 	expect(t, got, k("nut_server_up", "server", "nas"), 1)
 	expect(t, got, uk("nut_ups_up", "nas", "ups"), 1)
 	expect(t, got, uk("nut_ups_info", "nas", "ups", "description", "desc ups"), 1)
+	compare(t, "device", onlyFamilies(got, "nut_device_info"), samples{devKey("ups", map[string]string{
+		"model": "Back-UPS RS 1500G", "mfr": "American Power Conversion", "serial": "XX0000X00000  ", "type": "ups"}): 1})
 	expect(t, got, uk("nut_ups_logins", "nas", "ups"), 1)
 	expect(t, got, uk("nut_ups_client_sessions", "nas", "ups", "address", "127.0.0.1"), 1)
 	for _, c := range []string{"beeper.disable", "beeper.enable", "load.off"} {

@@ -31,7 +31,8 @@ Every UPS-scoped series has `server` (configured name, or the address with `-nut
 | `nut_variable_value{variable}` | numeric variables outside the catalogue (`experimental.*`, vendor names) |
 | `nut_variable_info{variable,value}` | text variables, value verbatim (`0002`, trailing spaces) |
 | `nut_variable_timestamp_seconds{variable}` | `*.date` variables in `YYYY-MM-DD` or `YYYY/MM/DD` |
-| `nut_ups_status{flag}` | `ups.status` flags, 0 or 1, only when `ups.status` was read |
+| `nut_device_info{model,mfr,serial,type,part,macaddr}` | hardware identity from `device.*`, or `ups.model`/`ups.mfr`/`ups.serial` when `device.*` is absent or empty; values verbatim |
+| `nut_ups_status{flag}` | `ups.status` flags, 0 or 1, only when `ups.status` was read: the documented flags (`OL OB LB HB RB CHRG DISCHRG BYPASS CAL OFF OVER TRIM BOOST FSD ALARM WAIT`) always, an unknown flag from its first appearance on; several are set at once (`OB DISCHRG LB`) |
 | `nut_ups_logins`, `nut_ups_client_sessions{address}` | sessions logged in (upsmon) |
 | `nut_ups_command_info{command}` | supported instant commands |
 | `nut_variable_writable`, `nut_variable_type_info`, `nut_variable_enum_info`, `nut_variable_range_info` | variable metadata |
@@ -40,10 +41,14 @@ Every UPS-scoped series has `server` (configured name, or the address with `-nut
 
 A variable is a gauge when its name is not a documented opaque or enumerated field (serials, IDs,
 dates, firmware, versions, statuses, yes/no and on/off settings...) and its value is a NUT number,
-spaces around it allowed; otherwise it is text. Override
-with `classify.numeric` / `classify.text`. A gauge takes its catalogue name when NUT documents
-it, `nut_variable_value` otherwise; each value is exported once. `/inventory` gives the metric of
-every variable (`metric`). The unit suffix is the one NUT states; where NUT states none
+spaces around it allowed; otherwise it is text. A NUT number is what drivers print with `%f`:
+`.5`, `120.` and `1.2e4` are text (NUT forbids exponents; `2e66` in a dump is a hexadecimal USB
+ID). Override with `classify.numeric` / `classify.text`; a variable named in `classify.numeric`
+also accepts a sign, a leading or trailing decimal point and an exponent, never hexadecimal,
+`Inf`, `NaN` or a value out of `float64` range. A gauge
+takes its catalogue name when NUT documents it, `nut_variable_value` otherwise; each value is
+exported once, except the identity repeated in `nut_device_info`. `/inventory` gives the metric
+of every variable (`metric`). The unit suffix is the one NUT states; where NUT states none
 (`battery.voltage.low`) there is no suffix. The suffix is the declared unit, not a checked one:
 values pass through unchanged, including driver defects (a temperature in kelvins, 255
 sentinels); quarantine such a variable with `classify.text` or `variables.exclude`. Three-phase values carry `phase` (`L1`, `L1-N`...),
@@ -53,10 +58,12 @@ Examples:
 
 ```promql
 nut_ups_status{flag="OB"} == 1                          # on battery
+nut_ups_status{flag="OL"} == 0
+  unless on(server, ups) nut_ups_status{flag="WAIT"} == 1   # off mains, not a driver restart
 nut_ups_logins == 0                                     # no upsmon watches the UPS
 time() - nut_variable_timestamp_seconds{variable="battery.mfr.date"} > 3 * 365 * 86400
-nut_battery_charge_percent * on(server, ups) group_left(value)
-  nut_variable_info{variable="device.model"}
+nut_variable_info{variable="ups.beeper.status", value!="enabled"} == 1   # beeper off or muted
+nut_battery_charge_percent * on(server, ups) group_left(model, serial) nut_device_info   # UPSes without identity drop out
 ```
 
 ## Configuration

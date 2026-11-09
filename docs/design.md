@@ -136,7 +136,9 @@ Each variable is exported as exactly one of: a gauge, or a text info series.
 3. Value, without leading and trailing ASCII spaces, matches the NUT numeric grammar
    `^-?[0-9]+(\.[0-9]+)?$` (`nut-names.txt:97-124`) → gauge. Fixed-width drivers pad numbers
    (nut-ddl: bcmxcp, bcmxcp_usb, upscode2, tripplite_usb, e.g. `"  11.7"`); text series and
-   `/inventory` keep the value verbatim.
+   `/inventory` keep the value verbatim. NUT has drivers print numbers with `%f` and forbids
+   scientific notation, so `.5`, `120.`, `1.2e4` and `+1` are text by default. The look-alikes in
+   nut-ddl are not quantities: `2e66` and `2e51` are hexadecimal USB IDs, `.04` a driver version.
 4. Anything else → text.
 
 A deny list of opaque names rather than an allow list of numeric names: drivers publish many
@@ -145,6 +147,12 @@ as text each new value would be a new series and the churn guard would hide them
 an undocumented digit-only identifier becomes a gauge; `classify.text` fixes it, and its exact
 text stays in `/inventory`.
 
+A variable forced numeric (`classify.numeric`) also accepts a sign, a leading or trailing decimal
+point next to at least one digit, and an exponent
+(`^[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?$`), for a driver that departs from the NUT
+format: the operator names the variable, so `2e66` is read as a number only if asked.
+Hexadecimal, `Inf`, `NaN`, overflow (`1e999`) and a nonzero value rounded to zero (`1e-999`)
+never parse.
 A variable forced numeric whose value does not parse is exported as text for that scrape and
 counted in `nut_variable_parse_errors_total`.
 
@@ -166,6 +174,7 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | `nut_server_query_success` | `query` | 1/0 for `discovery`, `version`, `protocol` |
 | `nut_server_suppressed` | `reason` | UPSes not exported: `filter`, `ups_cap` (not collected), `encoding` (name not UTF-8), `duplicate` |
 | `nut_ups_info` | `description` | 1; `LIST UPS`; exported whenever the UPS is listed |
+| `nut_device_info` | `model`, `mfr`, `serial`, `type`, `part`, `macaddr` | 1; `device.*` values verbatim, `ups.model`/`mfr`/`serial` where `device.*` is absent or empty (§5 Identity) |
 | `nut_ups_up` | | 1 if `LIST VAR` succeeded this scrape |
 | `nut_query_success` | `query` | 1/0 per core query of this scrape (`vars`, `logins`, `clients`, `commands`, `rw`) |
 | `nut_query_error_info` | `query`, `error` | 1 per failed query; `error` = one of the 23 NUT error words of net-protocol.txt, `other` for any other word, `timeout`, `too_large`, `protocol` or `io`; the raw text is in `/inventory` |
@@ -190,7 +199,7 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | `nut_exporter_build_info` | `version`, `goversion` | 1 |
 
 Each family depends only on its own query: a failed `LIST VAR` removes variable-derived families
-(`nut_variable_*` from vars, `nut_ups_status`) for that UPS and nothing else. Type, enum and
+(`nut_variable_*` from vars, `nut_ups_status`, `nut_device_info`) for that UPS and nothing else. Type, enum and
 range families come from the metadata cache only and stay while `LIST VAR` fails.
 
 Status: known flags (§2) are emitted once `ups.status` is read; an unknown flag is emitted as 1
@@ -201,14 +210,29 @@ the raw `ups.status` stays in `nut_variable_info` and `/inventory`.
 
 Descriptions (`GET DESC`, `GET CMDDESC`) go to `/inventory` only: long, static, localised text.
 
-Identity: `device.mfr`/`model`/`serial` are ordinary `nut_variable_info` series; dashboards join
-on `variable`. No duplicate identity metric.
+Identity: `device.*` variables stay ordinary `nut_variable_info` series and are repeated in one
+`nut_device_info` series per UPS, so that a query joins several of them at once
+(`group_left(model, serial)`), which `nut_variable_info` cannot do (one `value` label). Labels are
+the hardware identity names of the catalogue `device` section: `model mfr serial type part
+macaddr`. Administrative text (`device.description`, `device.contact`, `device.location`: set by
+an operator, possibly long or edited) stays in `nut_variable_info` only, so that it can neither
+suppress nor split the identity series; `device.uptime` and `device.count` are numbers. The
+catalogue notes that some `device.*` data duplicate `ups.*` during a transition and lists
+`ups.model`, `ups.mfr`, `ups.serial` with the same meaning as `device.model`, `device.mfr`,
+`device.serial`; the exporter (its choice, not a catalogue rule) fills these three labels from the
+`ups.*` entry when the `device.*` one is absent or empty (nut-ddl: 258 of the 610 dumps with
+`ups.model` have no `device.model`). Values are verbatim; the last of repeated names wins; a
+filtered or empty variable counts as absent (an empty label is absent in Prometheus); a label
+failing the label rules (§6) suppresses the series; churn applies, keyed by the UPS. Not emitted
+when every label is empty or `LIST VAR` failed. Identity is not copied onto other series: a
+serial or model change would split every series of the UPS.
 
 ## 5b. Catalogue-named metrics
 
 NUT standardises variable names, meanings and units (`N/docs/nut-names.txt`). A numeric variable
 named in that catalogue gets its own metric; any other numeric variable stays in
-`nut_variable_value{variable}`, so export remains exhaustive. Each value is exported once.
+`nut_variable_value{variable}`, so export remains exhaustive. Each value is exported once, except
+the identity repeated in `nut_device_info` (§5).
 
 Source: the variable tables and the three-phase SPEC tables of `nut-names.txt` at a pinned NUT
 commit. A generator (`internal/catalog/gen`) writes `internal/catalog/catalog_gen.go`; the NUT
@@ -294,10 +318,10 @@ exported) or `nut_server_suppressed{reason}` (number of UPSes), and the value st
 | `filter` | `ups`/`variables` include/exclude (exclude wins) | include all |
 | `encoding` | text value not valid UTF-8 (Prometheus label values must be UTF-8) | always |
 | `length` | label value longer than `max_length` bytes; never truncated or hashed | 1024 |
-| `churn` | turnover: the label sets of a (family, variable) key seen within `churn_window` but absent now reach `max_distinct` (a single-valued variable is suppressed at its `max_distinct + 1`-th distinct value within the window: `max_distinct` values are kept); applies to `nut_variable_info`, clients, type, enum, range. The size of a family never triggers it: commands and writable names are static driver data, bounded by `series_cap` | 100 / 24 h |
+| `churn` | turnover: the label sets of a (family, variable) key seen within `churn_window` but absent now reach `max_distinct` (a single-valued variable is suppressed at its `max_distinct + 1`-th distinct value within the window: `max_distinct` values are kept); applies to `nut_variable_info`, clients, type, enum, range, and `nut_device_info` (one key per UPS, dropped with the UPS or after `churn_window` unused, not when its variables disappear). The size of a family never triggers it: commands and writable names are static driver data, bounded by `series_cap` | 100 / 24 h |
 | `duplicate` | a name repeated in one LIST answer (variable, RW) or in `LIST UPS`: the last one wins, the others are counted; duplicate series would make the registry fail the whole scrape. `LIST UPS` duplicates are resolved before the UPS filter and `max_ups` | always |
 | `ups_cap` | more than `max_ups` per server; UPSes kept in name order | 256 |
-| `series_cap` | more than `max_series` UPS-scoped series; health, query and suppression families are outside the budget, as is `nut_ups_logins`; families dropped whole in this order: enum, range, type, writable, commands, clients, timestamps; then variables in reverse name order, text and gauges alike | 20000 |
+| `series_cap` | more than `max_series` UPS-scoped series; health, query and suppression families are outside the budget, as are `nut_ups_logins` and `nut_device_info` (one series per UPS); families dropped whole in this order: enum, range, type, writable, commands, clients, timestamps; then variables in reverse name order, text and gauges alike | 20000 |
 | `status_tokens` | unknown status flags beyond 32 | 32 |
 
 Retained state is bounded: metadata and churn entries exist only for listed items, and listed

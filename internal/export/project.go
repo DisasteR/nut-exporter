@@ -149,6 +149,7 @@ func (p *projector) ups(server string, u collect.UPS) []sample {
 
 	if u.Queries[collect.QueryVars].OK() {
 		budget = append(budget, p.variables(sc, u, sup)...)
+		health = append(health, p.device(sc, u, sup)...)
 	}
 	if u.Queries[collect.QueryLogins].OK() {
 		health = append(health, sample{f: fLogins, labels: sc, value: float64(u.Logins)})
@@ -263,6 +264,31 @@ func (p *projector) variables(sc []string, u collect.UPS, sup suppressions) []sa
 		}
 	}
 	return out
+}
+
+// device projects the identity variables into one nut_device_info series: device.<label>, else the
+// ups.* entry carrying the same datum; a filtered or empty variable counts as absent (an empty
+// label is absent in Prometheus). None present: no series.
+func (p *projector) device(sc []string, u collect.UPS, sup suppressions) []sample {
+	vals := map[string]string{} // last value wins, as in variables
+	for _, v := range u.Vars {
+		if p.cfg.Variables.Match(v.Name) {
+			vals[v.Name] = v.Value
+		}
+	}
+	labels, found := with(sc), false
+	for _, l := range deviceLabels {
+		v := vals["device."+l]
+		if v == "" && deviceLegacy[l] != "" {
+			v = vals[deviceLegacy[l]]
+		}
+		found = found || v != ""
+		labels = append(labels, v)
+	}
+	if !found {
+		return nil
+	}
+	return p.guard(sc, fDevice, "", []sample{{f: fDevice, labels: labels, value: 1}}, sup)
 }
 
 // status projects ups.status into flags: known flags always, unknown ones remembered (max 32).

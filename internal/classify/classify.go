@@ -55,7 +55,13 @@ func matches(patterns []string, name string) bool {
 	return false
 }
 
-var number = regexp.MustCompile(`^-?[0-9]+(\.[0-9]+)?$`)
+var (
+	// number is the NUT numeric format (nut-names.txt "Numeric format": %f output, no exponent).
+	number = regexp.MustCompile(`^-?[0-9]+(\.[0-9]+)?$`)
+	// forcedNumber is the decimal syntax accepted under classify.numeric only: sign, bare
+	// fraction or point, exponent. Never hexadecimal, Inf or NaN.
+	forcedNumber = regexp.MustCompile(`^[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?$`)
+)
 
 // Classify gives text overrides precedence over numeric overrides.
 func (c *Classifier) Classify(name, value string) (Kind, float64, bool) {
@@ -68,12 +74,23 @@ func (c *Classifier) Classify(name, value string) (Kind, float64, bool) {
 	}
 	// Fixed-width drivers (bcmxcp, upscode2, tripplite_usb) pad numbers with spaces; the value
 	// itself is kept verbatim for text and the inventory.
-	if n := strings.Trim(value, " "); number.MatchString(n) {
-		if v, err := strconv.ParseFloat(n, 64); err == nil {
+	n := strings.Trim(value, " ")
+	grammar := number
+	if forced {
+		grammar = forcedNumber
+	}
+	if grammar.MatchString(n) {
+		if v, err := strconv.ParseFloat(n, 64); err == nil && !underflow(n, v) { // overflow: err
 			return Gauge, v, false
 		}
 	}
 	return Text, 0, forced
+}
+
+// underflow reports a nonzero value that ParseFloat rounded to zero without error (1e-999).
+func underflow(n string, v float64) bool {
+	mantissa, _, _ := strings.Cut(strings.ToLower(n), "e")
+	return v == 0 && strings.ContainsAny(mantissa, "123456789")
 }
 
 // Timestamp parses a calendar date at midnight UTC.

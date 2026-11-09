@@ -45,6 +45,7 @@ var (
 	fDuration         = &family{name: "nut_collect_duration_seconds", help: "Duration of the last collection of the server.", scope: scopeServer}
 
 	fUPSInfo     = &family{name: "nut_ups_info", help: "UPS listed by upsd, with its description.", labels: []string{"description"}, scope: scopeUPS}
+	fDevice      = &family{name: "nut_device_info", help: "Device identity from device.* (ups.mfr, ups.model, ups.serial where device.* is absent or empty), values verbatim.", labels: deviceLabels, scope: scopeUPS}
 	fUPSUp       = &family{name: "nut_ups_up", help: "1 if LIST VAR succeeded.", scope: scopeUPS}
 	fQuery       = &family{name: "nut_query_success", help: "1 if the core query succeeded.", labels: []string{"query"}, scope: scopeUPS}
 	fQueryError  = &family{name: "nut_query_error_info", help: "Error of a failed core query.", labels: []string{"query", "error"}, scope: scopeUPS}
@@ -67,9 +68,17 @@ var (
 	fBuildInfo   = &family{name: "nut_exporter_build_info", help: "Exporter build.", labels: []string{"version", "goversion"}, scope: -1}
 )
 
+// deviceLabels are the device.* names of the NUT catalogue that identify the hardware (not the
+// administrative description, contact, location); deviceLegacy gives the ups.* entry carrying the
+// same datum (nut-names.txt, "device" section).
+var (
+	deviceLabels = []string{"model", "mfr", "serial", "type", "part", "macaddr"}
+	deviceLegacy = map[string]string{"model": "ups.model", "mfr": "ups.mfr", "serial": "ups.serial"}
+)
+
 var families = []*family{
 	fServerUp, fServerInfo, fServerQuery, fServerSuppressed, fDuration,
-	fUPSInfo, fUPSUp, fQuery, fQueryError, fMetaAge, fMetaErrors, fMetaPending, fSuppressed,
+	fUPSInfo, fDevice, fUPSUp, fQuery, fQueryError, fMetaAge, fMetaErrors, fMetaPending, fSuppressed,
 	fParseErrors, fLogins, fValue, fInfo, fStatus, fTimestamp, fClients, fCommands, fWritable,
 	fType, fEnum, fRange, fBuildInfo,
 }
