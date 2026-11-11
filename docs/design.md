@@ -459,9 +459,6 @@ delays and errors. Each test states which wrong implementation it catches.
   port list, where 9100-9999 are all taken), so scrape configurations keep working. Published
   to `ghcr.io` only for a `vX.Y.Z` tag: image tags `X.Y.Z` and `sha-<commit>`,
   no moving tag; changelog per tag.
-- NAS: run next to `druggeri/nut_exporter:3.3.0` on another port; port the `nas-ups-energy`
-  dashboard, alert rules and the `DISCHRG` annotation to the new names; then remove nut_exporter
-  and its NUT credentials. Rollback: the old service stays in the compose file until then.
 
 ## 11. Open questions
 
