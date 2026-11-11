@@ -463,5 +463,7 @@ delays and errors. Each test states which wrong implementation it catches.
 ## 11. Open questions
 
 - `ups.timer.shutdown=-1` meaning on usbhid-ups before alerting on it.
-- Real scrape latency and series count on the NAS, to be measured on the bench.
-- Repository name, owner and licence.
+- Defaults (`timeouts.scrape` 10 s, `timeouts.command` 2 s, `workers` 2, `max_series` 20000)
+  come from the dummy-ups bench and the nut-ddl corpus, not from a production upsd: confirm them
+  with `max_over_time(nut_collect_duration_seconds[7d])`, the scraper's samples per scrape and
+  `nut_suppressed` on real installations.
