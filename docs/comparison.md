@@ -9,7 +9,7 @@ Measured on 2026-11-25 by `scripts/compare/run.sh` (images pinned by digest, sou
 | **HON95** | [HON95/prometheus-nut-exporter](https://github.com/HON95/prometheus-nut-exporter) | 1.2.1 | last release 2022-08-03 |
 | **go-nut** | [dominikh/go-nut](https://github.com/dominikh/go-nut) `cmd/nut_exporter` | commit `6a91d67` | no release; last commit 2020-07-06 |
 | **upsc-exporter** | [jzck/prometheus-upsc-exporter](https://github.com/jzck/prometheus-upsc-exporter) | image built 2019-07-14 | no release; last commit 2019-07-14 |
-| **this project** | [DisasteR/nut-exporter](https://github.com/DisasteR/nut-exporter) | 0.2.0 | |
+| **this project** | [DisasteR/nut-exporter](https://github.com/DisasteR/nut-exporter) | 0.3.0 | |
 
 These results describe those versions and settings only; rerun the bench for others. Not
 measured: twiedenbein/prometheus-nut-exporter (no licence file, no stars or forks).
@@ -96,10 +96,11 @@ upsc-exporter 80 of 570; this project 10 of 619 (driver values outside the NUT n
 some devices); 0 for the others, which skip what does not fit their list.
 
 UPS series in one Prometheus scrape of these 725 UPSes: Telegraf 16039, DRuggeri nut_exporter
-27419, HON95 20420, go-nut 9637, upsc-exporter 14646, this project 77949: 37935 for the variables
-(values, 11537 status flags, identity, date timestamps), 25514 `nut_variable_type_info` (one per
-variable) and 14500 per-UPS information and collection health. These are counts of one snapshot,
-not of label churn or storage cost.
+27419, HON95 20420, go-nut 9637, upsc-exporter 14646, this project 52435: 37935 for the variables
+(values, 11537 status flags, identity, date timestamps) and 14500 per-UPS information and
+collection health; no `nut_variable_type_info`, since the fake upsd answers `NUMBER` to every
+`GET TYPE` (a real upsd adds one series per `RW`, `ENUM`, `RANGE` or `STRING:<len>` token). These
+are counts of one snapshot, not of label churn or storage cost.
 
 ## Where the others fit better
 
