@@ -331,6 +331,9 @@ func (p *projector) metadata(sc []string, u collect.UPS, sup suppressions) []sam
 		var ts, es, rs []sample
 		if !m.Type.LastOK.IsZero() {
 			for _, t := range sortedUnique(m.Type.Value) {
+				if t == "NUMBER" { // upsd's answer for any variable not flagged as a string (design §2)
+					continue
+				}
 				ts = append(ts, sample{f: fType, labels: with(sc, name, t), value: 1, group: fType.name})
 			}
 		}

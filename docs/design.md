@@ -187,7 +187,7 @@ Labels: `server` (configured name), `ups` (NUT name). Values in NUT units.
 | `nut_ups_client_sessions` | `address` | sessions per address, `LIST CLIENT` |
 | `nut_ups_command_info` | `command` | 1 per `LIST CMD` entry |
 | `nut_variable_writable` | `variable` | 1 per `LIST RW` entry |
-| `nut_variable_type_info` | `variable`, `type` | 1 per `GET TYPE` token (cache) |
+| `nut_variable_type_info` | `variable`, `type` | 1 per `GET TYPE` token (cache) except `NUMBER`, the answer for any variable not flagged as a string (§2); the raw answer stays in `/inventory` |
 | `nut_variable_enum_info` | `variable`, `value` | 1 per allowed value (cache) |
 | `nut_variable_range_info` | `variable`, `min`, `max` | 1 per range (cache) |
 | `nut_metadata_age_seconds` | `query` | age of the oldest successful entry per query kind |

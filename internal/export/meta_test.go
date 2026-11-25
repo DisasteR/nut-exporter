@@ -10,9 +10,12 @@ import (
 )
 
 func metaUPS(name string) *upsSpec {
-	u := newUPS(name, "input.sensitivity", "medium", "ups.delay.shutdown", "20", "device.model", "X1")
+	u := newUPS(name, "input.sensitivity", "medium", "ups.delay.shutdown", "20", "device.model", "X1",
+		"battery.charge", "100")
 	u.cmds = []string{"beeper.enable"}
-	u.typ = map[string]string{"input.sensitivity": "RW ENUM", "device.model": "STRING:20", "ups.delay.shutdown": "RANGE"}
+	// GET TYPE answers as upsd writes them: flags, then STRING:<len> or NUMBER (battery.charge: NUMBER).
+	u.typ = map[string]string{"input.sensitivity": "RW ENUM STRING:10", "device.model": "STRING:20",
+		"ups.delay.shutdown": "RANGE NUMBER", "battery.charge": "NUMBER"}
 	u.enum = map[string][]string{"input.sensitivity": {"low", "medium", "high"}}
 	// A variable with both an enum and a range list keeps both (2.7.4 GET TYPE hides the range).
 	u.rng = map[string][][2]string{"input.sensitivity": {{"100", "200"}}, "ups.delay.shutdown": {{"0", "600"}}}
@@ -42,6 +45,7 @@ func strs(v any) []string {
 }
 
 // Catches: metadata missing from metrics/inventory, GET TYPE hiding the range list of an enum variable,
+// the default NUMBER token exported (one useless series per variable) or other tokens dropped with it,
 // metadata queried on the scrape path, and `complete` ignoring metadata.
 func TestMetadataExported(t *testing.T) {
 	u := metaUPS("ups")
@@ -55,7 +59,7 @@ func TestMetadataExported(t *testing.T) {
 		return uk("nut_variable_type_info", "nas", "ups", "variable", v, "type", ty)
 	}
 	compare(t, "type_info", onlyFamilies(got, "nut_variable_type_info"), samples{
-		ty("input.sensitivity", "RW"): 1, ty("input.sensitivity", "ENUM"): 1,
+		ty("input.sensitivity", "RW"): 1, ty("input.sensitivity", "ENUM"): 1, ty("input.sensitivity", "STRING:10"): 1,
 		ty("device.model", "STRING:20"): 1, ty("ups.delay.shutdown", "RANGE"): 1,
 	})
 	en := func(v string) string {
@@ -80,8 +84,13 @@ func TestMetadataExported(t *testing.T) {
 	if r := val("range"); !slices.Contains(r, "100") || !slices.Contains(r, "200") {
 		t.Errorf("inventory range = %v", r)
 	}
-	if !slices.Equal(val("type"), []string{"RW", "ENUM"}) {
+	if !slices.Equal(val("type"), []string{"RW", "ENUM", "STRING:10"}) {
 		t.Errorf("inventory type = %v", val("type"))
+	}
+	// The inventory keeps the raw answer, NUMBER included.
+	bc := invVar(t, iu, "battery.charge")["metadata"].(map[string]any)
+	if ty := strs(bc["type"].(map[string]any)["value"]); !slices.Equal(ty, []string{"NUMBER"}) {
+		t.Errorf("inventory battery.charge type = %v", ty)
 	}
 	if !slices.Equal(val("desc"), []string{"Input power sensitivity"}) {
 		t.Errorf("inventory desc = %v", val("desc"))
