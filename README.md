@@ -5,6 +5,30 @@ or more upsd servers, without listing variables and without altering values, plu
 client addresses, instant commands, writable variables and their constraints. Read-only: it
 sends no SET, INSTCMD or LOGIN and needs no NUT credentials. Design: `docs/design.md`.
 
+## Why
+
+- **Nothing to list.** Every variable of every discovered UPS is exported by default: a new UPS,
+  a driver upgrade or a new NUT version needs no configuration change. Filters and resource
+  guards are the only exceptions, each counted in `nut_suppressed` or `nut_server_suppressed`.
+- **Values as upsd sends them.** Text is kept byte for byte (`0002`, `051d`, `disabled`, trailing
+  spaces, quotes). A value becomes a number only when its name is not an identifier or an
+  enumeration of the NUT catalogue and it matches the NUT numeric format; no word is mapped to
+  0/1.
+- **NUT names and units.** Metric names and units come from NUT's own variable catalogue
+  (`nut_battery_runtime_seconds`, `nut_input_voltage_volts`); the unit is the one NUT declares,
+  values are not converted.
+- **Several UPSes and servers.** One scrape covers every UPS of every configured server; UPS
+  series carry `server` and `ups`; a failing UPS or query is reported on its own
+  (`nut_query_success`) without removing other UPSes' data, and a server whose UPS list fails is
+  reported down (`nut_server_up`).
+- **More than variables.** Login count, client addresses, instant commands, writable variables
+  and, from background metadata queries, their type and allowed values.
+- **No NUT account.** It only reads, and upsd needs no login for `GET` and `LIST`.
+
+`docs/comparison.md` measures Telegraf's `upsd` input,
+[DRuggeri/nut_exporter](https://github.com/DRuggeri/nut_exporter) and three other NUT exporters
+against the same 724 real device dumps, with the trade-offs.
+
 ## Run
 
 ```sh
